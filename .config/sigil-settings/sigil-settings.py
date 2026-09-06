@@ -205,17 +205,24 @@ class PowerPage(Adw.PreferencesPage):
         self.add(g)
 
         g = Adw.PreferencesGroup(title="Night light",
-                                 description="hyprsunset warms the screen on a schedule; the switch overrides it until "
-                                             "the next scheduled change.")
+                                 description="hyprsunset warms the screen on a schedule; the override switch lasts "
+                                             "until the next scheduled change.")
         ns = self.read_sunset()
+        self.sched = Adw.SwitchRow(title="Schedule", subtitle="Run hyprsunset at login and follow the times below")
+        self.sched.set_active(ns["enabled"])
+        g.add(self.sched)
         self.night = Adw.SwitchRow(title="Night light now", subtitle="Manual override")
         self.night.set_active(run([NIGHTLIGHT, "state"]) == "true")
         self.night.connect("notify::active", lambda r, _: (run([NIGHTLIGHT, "on" if r.get_active() else "off"]),
                                                             self.toast("Night light " + ("on" if r.get_active() else "off"))))
         g.add(self.night)
-        self.temp_val = ns["temp"]
-        g.add(scale_row("Warmth", "Colour temperature at night (lower = warmer); previews live", ns["temp"],
+        self.temp_val, self.gamma_val, self.day_val = ns["temp"], ns["gamma"], ns["day"]
+        g.add(scale_row("Night warmth", "Colour temperature at night (lower = warmer); previews live", ns["temp"],
                         self.preview_temp, lo=2500, hi=6000, step=100, fmt="{:.0f} K"))
+        g.add(scale_row("Night brightness", "Gamma applied with the warm tint; previews live", ns["gamma"],
+                        self.preview_gamma, lo=40, hi=100, step=5))
+        g.add(scale_row("Day warmth", "Daytime colour temperature; 6500 K = untouched", ns["day"],
+                        self.preview_day, lo=4000, hi=6500, step=100, fmt="{:.0f} K"))
         self.start = Adw.EntryRow(title="Evening start (HH:MM)"); self.start.set_text(ns["start"])
         self.end = Adw.EntryRow(title="Morning end (HH:MM)"); self.end.set_text(ns["end"])
         g.add(self.start); g.add(self.end)
@@ -239,29 +246,45 @@ class PowerPage(Adw.PreferencesPage):
 
     @staticmethod
     def read_sunset():
-        d = {"start": "21:00", "end": "07:30", "temp": 4200}
+        d = {"start": "21:00", "end": "07:30", "temp": 4200, "gamma": 100, "day": 6500, "enabled": True}
         try:
             text = open(HYPRSUNSET).read()
         except OSError:
             return d
-        for block in re.findall(r"profile\s*\{(.*?)\}", text, re.S):
-            t = re.search(r"time\s*=\s*(\d+):(\d+)", block)
+        d["enabled"] = not re.search(r"^#\s*schedule\s*=\s*off", text, re.M)
+        blocks = re.findall(r"profile\s*\{(.*?)\}", text, re.S)
+        def temp_of(b):
+            m = re.search(r"temperature\s*=\s*(\d+)", b)
+            return int(m.group(1)) if m else 6500
+        night = min(blocks, key=temp_of, default=None)
+        for b in blocks:
+            t = re.search(r"time\s*=\s*(\d+):(\d+)", b)
             if not t:
                 continue
             hhmm = f"{int(t.group(1)):02d}:{int(t.group(2)):02d}"
-            if re.search(r"identity\s*=\s*true", block):
-                d["end"] = hhmm
+            if b is night:
+                d["start"], d["temp"] = hhmm, temp_of(b)
+                g = re.search(r"gamma\s*=\s*(\d+)", b)
+                d["gamma"] = int(g.group(1)) if g else 100
             else:
-                d["start"] = hhmm
-                k = re.search(r"temperature\s*=\s*(\d+)", block)
-                if k:
-                    d["temp"] = int(k.group(1))
+                d["end"], d["day"] = hhmm, temp_of(b)
         return d
 
     def preview_temp(self, v):
         self.temp_val = int(v)
         if self.night.get_active():
             run(["hyprctl", "hyprsunset", "temperature", str(self.temp_val)])
+
+    def preview_gamma(self, v):
+        self.gamma_val = int(v)
+        if self.night.get_active():
+            run(["hyprctl", "hyprsunset", "gamma", str(self.gamma_val)])
+
+    def preview_day(self, v):
+        self.day_val = int(v)
+        if not self.night.get_active():
+            run(["hyprctl", "hyprsunset", "identity"] if self.day_val >= 6500 else
+                ["hyprctl", "hyprsunset", "temperature", str(self.day_val)])
 
     def apply_sunset(self):
         times = []
@@ -270,16 +293,24 @@ class PowerPage(Adw.PreferencesPage):
             if not m or int(m.group(1)) > 23 or int(m.group(2)) > 59:
                 row.add_css_class("error"); self.toast("Time must be HH:MM"); return
             row.remove_css_class("error"); times.append(f"{int(m.group(1))}:{int(m.group(2)):02d}")
+        enabled = self.sched.get_active()
+        day = "    identity = true\n" if self.day_val >= 6500 else f"    temperature = {self.day_val}\n"
+        night_gamma = f"    gamma = {self.gamma_val}\n" if self.gamma_val < 100 else ""
         with open(HYPRSUNSET, "w") as f:
             f.write("# hyprsunset schedule (generated by sigil-settings) - warm evenings, neutral by day\n"
                     "# manual override: ~/.config/swaync/nightlight.sh on|off|toggle\n"
+                    f"# schedule = {'on' if enabled else 'off'}\n"
                     "max-gamma = 150\n\n"
-                    f"profile {{\n    time = {times[1]}\n    identity = true\n}}\n\n"
-                    f"profile {{\n    time = {times[0]}\n    temperature = {self.temp_val}\n}}\n")
+                    f"profile {{\n    time = {times[1]}\n{day}}}\n\n"
+                    f"profile {{\n    time = {times[0]}\n    temperature = {self.temp_val}\n{night_gamma}}}\n")
         run([NIGHTLIGHT, "reset"])
-        restart("hyprsunset")
+        if enabled:
+            restart("hyprsunset")
+        else:
+            run(["hyprctl", "hyprsunset", "identity"]); run(["hyprctl", "hyprsunset", "gamma", "100"])
+            run(["pkill", "-x", "hyprsunset"])
         GLib.timeout_add(900, lambda: (self.night.set_active(run([NIGHTLIGHT, "state"]) == "true"), False)[1])
-        self.toast("Night light schedule applied")
+        self.toast("Night light schedule applied" if enabled else "Night light schedule disabled")
 
     @staticmethod
     def spin(title, subtitle, value, lo, hi, step, digits):

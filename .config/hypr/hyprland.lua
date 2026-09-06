@@ -58,7 +58,7 @@ hl.on("hyprland.start", function ()
     hl.exec_cmd("~/.config/keysound/keysound.sh start") -- typewriter key sounds
     hl.exec_cmd("wl-paste --type text --watch cliphist store")  -- clipboard history (SUPER+SHIFT+V)
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
-    hl.exec_cmd("hyprsunset") -- night light schedule (~/.config/hypr/hyprsunset.conf)
+    hl.exec_cmd("~/.config/swaync/nightlight.sh autostart") -- night light schedule if enabled (~/.config/hypr/hyprsunset.conf)
 end)
 
 -------------------------------
