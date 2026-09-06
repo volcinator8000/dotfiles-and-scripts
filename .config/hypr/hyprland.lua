@@ -56,6 +56,9 @@ hl.on("hyprland.start", function ()
     hl.exec_cmd("swaync")
     hl.exec_cmd("hyprexpose")
     hl.exec_cmd("~/.config/keysound/keysound.sh start") -- typewriter key sounds
+    hl.exec_cmd("wl-paste --type text --watch cliphist store")  -- clipboard history (SUPER+SHIFT+V)
+    hl.exec_cmd("wl-paste --type image --watch cliphist store")
+    hl.exec_cmd("hyprsunset") -- night light schedule (~/.config/hypr/hyprsunset.conf)
 end)
 
 -------------------------------
@@ -362,6 +365,8 @@ local mainMod = "SUPER" -- Sets "Windows" key as main modifier
 
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("loginctl lock-session"))
 hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("swaync-client -t -sw"))
+hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("~/.config/rofi/clip.sh")) -- clipboard history
+hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("rofi -show emoji")) -- emoji picker (rofi-emoji)
 hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("python3 ~/.config/sigil-settings/sigil-settings.py")) -- settings applet
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more

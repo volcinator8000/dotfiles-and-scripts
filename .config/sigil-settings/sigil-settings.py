@@ -16,6 +16,7 @@ CFG = os.path.join(HOME, ".config")
 KS = os.path.join(CFG, "keysound")
 KS_SH = os.path.join(KS, "keysound.sh")
 KEEPAWAKE = os.path.join(CFG, "swaync", "keepawake.sh")
+NIGHTLIGHT = os.path.join(CFG, "swaync", "nightlight.sh")
 HYPRIDLE = os.path.join(CFG, "hypr", "hypridle.conf")
 HYPRPAPER = os.path.join(CFG, "hypr", "hyprpaper.conf")
 HYPRLOCK = os.path.join(CFG, "hypr", "hyprlock.conf")
@@ -200,6 +201,11 @@ class PowerPage(Adw.PreferencesPage):
         cur_b = float(b[3].rstrip("%")) if len(b) > 3 else 100
         g.add(scale_row("Brightness", "Panel backlight", cur_b,
                         lambda v: run(["brightnessctl", "-q", "set", f"{int(v)}%"]), lo=1))
+        self.night = Adw.SwitchRow(title="Night light", subtitle="Warm tint now (hyprsunset schedule: 21:00 to 7:30)")
+        self.night.set_active(run([NIGHTLIGHT, "state"]) == "true")
+        self.night.connect("notify::active", lambda r, _: (run([NIGHTLIGHT, "on" if r.get_active() else "off"]),
+                                                            self.toast("Night light " + ("on" if r.get_active() else "off"))))
+        g.add(self.night)
         self.add(g)
 
         g = Adw.PreferencesGroup(title="Idle timers",
