@@ -2,7 +2,7 @@
 Type=Application
 Name=Sigil Settings
 Comment=Control panel for the rice: key sounds, power, idle timers, wallpaper, services
-Exec=python3 /home/kali/.config/sigil-settings/sigil-settings.py
+Exec=sh -c 'python3 ~/.config/sigil-settings/sigil-settings.py'
 Icon=preferences-system
 Terminal=false
 Categories=Settings;System;

@@ -1,0 +1,4 @@
+# GPP0 root port (00:01.1) and the Navi 24 PCIe switch (01:00.0 upstream, 02:00.0 downstream)
+ACTION=="add", SUBSYSTEM=="pci", KERNEL=="0000:00:01.1", ATTR{power/wakeup}="disabled"
+ACTION=="add", SUBSYSTEM=="pci", KERNEL=="0000:01:00.0", ATTR{power/wakeup}="disabled"
+ACTION=="add", SUBSYSTEM=="pci", KERNEL=="0000:02:00.0", ATTR{power/wakeup}="disabled"

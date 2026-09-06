@@ -1,0 +1,6 @@
+# optional apps (--apps): autostarted by hyprland.lua on special workspaces
+vesktop-bin
+slack-desktop
+spotify
+zen-browser-bin
+ani-cli-git

@@ -1,0 +1,19 @@
+# core desktop
+hyprland hyprlock hypridle hyprpaper hyprsunset hyprpolkitagent xdg-desktop-portal-hyprland
+waybar swaync rofi rofi-emoji wtype kitty wlogout
+# shell
+zsh zsh-autosuggestions zsh-syntax-highlighting starship macchina eza bat zoxide fzf pkgfile
+# clipboard / screenshots
+cliphist wl-clipboard grim slurp satty
+# system controls used by the bar, control center and settings app
+brightnessctl power-profiles-daemon playerctl pacman-contrib fakeroot
+python-gobject libadwaita gtk4 python-cairo
+# theming
+qt6ct qt5ct qt6-wayland papirus-icon-theme ttf-jetbrains-mono-nerd
+noto-fonts noto-fonts-cjk noto-fonts-emoji noto-fonts-extra
+# apps the config references
+dolphin pavucontrol blueman bluez bluez-utils network-manager-applet networkmanager
+pipewire pipewire-pulse wireplumber btop
+# safety nets
+snapper snap-pac zram-generator ufw
+git base-devel

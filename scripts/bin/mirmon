@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Fetch all connected monitors into an array
+MONITORS=($(hyprctl monitors all | awk '/^Monitor/ {print $2}'))
+
+# Check if at least two monitors are connected
+if [ ${#MONITORS[@]} -lt 2 ]; then
+    echo "Error: Only one monitor detected. Please plug in your second monitor."
+    exit 1
+fi
+
+# Assign the first detected monitor as primary and the second as secondary
+PRIMARY="${MONITORS}"
+SECONDARY="HDMI-A-1"
+
+echo "Primary monitor: $PRIMARY"
+echo "Secondary monitor: $SECONDARY"
+echo "Applying mirror configuration..."
+
+# Use hyprctl to dynamically update the monitor rule
+hyprctl keyword monitor "$SECONDARY,preferred,auto,1,mirror,$PRIMARY"
+
+echo "Done!"
+

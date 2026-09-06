@@ -86,14 +86,14 @@
           "type": "toggle",
           "active": false,
           "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/swaync/keepawake.sh on || ~/.config/swaync/keepawake.sh off'",
-          "update-command": "/home/kali/.config/swaync/keepawake.sh state"
+          "update-command": "sh -c '~/.config/swaync/keepawake.sh state'"
         },
         {
           "label": "󰖔",
           "type": "toggle",
           "active": false,
           "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/swaync/nightlight.sh on || ~/.config/swaync/nightlight.sh off'",
-          "update-command": "/home/kali/.config/swaync/nightlight.sh state"
+          "update-command": "sh -c '~/.config/swaync/nightlight.sh state'"
         },
         {
           "label": "󱐋",
@@ -107,7 +107,7 @@
           "type": "toggle",
           "active": false,
           "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh start || ~/.config/keysound/keysound.sh stop'",
-          "update-command": "/home/kali/.config/keysound/keysound.sh state"
+          "update-command": "sh -c '~/.config/keysound/keysound.sh state'"
         },
         {
           "label": "󰅇",

@@ -1,0 +1,101 @@
+#!/bin/bash
+
+set -e
+
+# --- ARG CHECK ---
+if [ -z "$1" ]; then
+    echo "Usage: dirprep <git-repo-url>"
+    exit 1
+fi
+
+REPO_URL="$1"
+PROJECT_NAME=$(basename "$REPO_URL" .git)
+YEAR=$(date +%Y)
+HEADER_GUARD=$(echo "${PROJECT_NAME}_H" | tr '[:lower:]' '[:upper:]')
+
+# --- CLONE ---
+git clone "$REPO_URL"
+cd "$PROJECT_NAME"
+
+# --- PROJECT STRUCTURE ---
+mkdir -p include src
+
+# --- my.h ---
+cat <<EOF > include/my.h
+/*
+** EPITECH PROJECT, ${YEAR}
+** ${PROJECT_NAME}
+** File description:
+** my.h
+*/
+
+#ifndef MY_H
+#define MY_H
+
+#endif
+EOF
+
+# --- main.c ---
+cat <<EOF > src/main.c
+/*
+** EPITECH PROJECT, ${YEAR}
+** ${PROJECT_NAME}
+** File description:
+** main
+*/
+
+#include "my.h"
+
+int main(void)
+{
+    return 0;
+}
+EOF
+
+# --- .gitignore ---
+cat <<EOF > .gitignore
+# Binaries
+*.o
+*.a
+*.so
+a.out
+*.pdf
+
+# VSCode
+.vscode/
+EOF
+
+# --- MAKEFILE ---
+cat <<EOF > Makefile
+##
+## EPITECH PROJECT, ${YEAR}
+## ${PROJECT_NAME}
+## File description:
+## Makefile
+##
+
+SRC     =   \$(wildcard src/*.c)
+
+OBJ     =   \$(SRC:.c=.o)
+
+NAME    =   
+
+CFLAGS  =   -Wall -Wextra -I./include
+
+CC	=	epiclang
+
+all: \$(NAME)
+
+\$(NAME): \$(OBJ)
+		\$(CC) -o \$(NAME) \$(OBJ) \$(CFLAGS)
+
+clean:
+		rm -f \$(OBJ)
+
+fclean: clean
+		rm -f \$(NAME)
+
+re: fclean all
+
+.PHONY: all clean fclean re
+EOF

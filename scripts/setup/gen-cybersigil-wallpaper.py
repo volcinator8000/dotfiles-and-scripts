@@ -1,4 +1,4 @@
-import cairo, math, random
+import cairo, math, random, os
 random.seed(23)
 W,H = 3840,2160
 s = cairo.ImageSurface(cairo.FORMAT_ARGB32, W, H); c = cairo.Context(s)
@@ -98,4 +98,4 @@ for (px,py) in ((380,330),(W-420,300),(340,H-360),(W-380,H-330),(W/2-1200,H/2),(
 # scanlines
 c.set_source_rgba(1,1,1,0.016); c.set_line_width(1)
 for y in range(0,H,4): c.move_to(0,y); c.line_to(W,y); c.stroke()
-s.write_to_png('/home/kali/Pictures/Wallpapers/cybersigil_raw.png')
+s.write_to_png(os.path.expanduser('~/Pictures/Wallpapers/cybersigil_raw.png'))

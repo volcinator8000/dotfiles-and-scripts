@@ -34,5 +34,5 @@ alias update="~/.config/waybar/scripts/update-now.sh"
 eval "$(starship init zsh)"
 [[ -o interactive && -z "$INSIDE_UPDATE_WINDOW" ]] && macchina
 
-# dotfiles: bare repo in ~/.dotfiles, e.g. `dots status`, `dots add <file>`, `dots commit`
-alias dots="git --git-dir=$HOME/.dotfiles --work-tree=$HOME"
+# dotfiles: ~/dotfiles-and-scripts (configs are symlinks into it), e.g. `dots status`, `dots add -A`, `dots commit`, `dots push`
+alias dots="git -C $HOME/dotfiles-and-scripts"

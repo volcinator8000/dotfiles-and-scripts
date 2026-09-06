@@ -4,7 +4,7 @@ set -euo pipefail
 [[ $EUID -eq 0 ]] || { echo "run with sudo"; exit 1; }
 SWAP=/swap/swapfile
 REFIND=/boot/refind_linux.conf
-BK=/home/kali/setup_and_config/backup-2026-09-06
+BK=~/setup_and_config/backup-2026-09-06
 
 echo "==> checking swapfile"
 [[ -f $SWAP ]] || { echo "no $SWAP"; exit 1; }
