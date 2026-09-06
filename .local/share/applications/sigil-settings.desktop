@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Sigil Settings
+Comment=Control panel for the rice: key sounds, power, idle timers, wallpaper, services
+Exec=python3 /home/kali/.config/sigil-settings/sigil-settings.py
+Icon=preferences-system
+Terminal=false
+Categories=Settings;System;
+StartupWMClass=io.sigil.Settings
+Keywords=settings;keysound;power;wallpaper;

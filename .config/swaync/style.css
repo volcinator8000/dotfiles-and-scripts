@@ -1,0 +1,142 @@
+/* cybersigilism swaync — popups + control center */
+@define-color base     #050507;
+@define-color surface  #0d0d12;
+@define-color line     #1b1b24;
+@define-color muted    #6b6b78;
+@define-color text     #dcdce3;
+@define-color subtext  #9a9aa8;
+@define-color blue     #3ae0ff;
+@define-color purple   #a64dff;
+@define-color pink     #ff5cc8;
+@define-color red      #ff2d3a;
+@define-color amber    #ffb000;
+@define-color green    #39ff14;
+
+* {
+  font-family: "JetBrainsMono Nerd Font";
+  font-size: 13px;
+  transition: 120ms;
+  border-radius: 0;
+}
+
+/* ── popups ─────────────────────────────────────────── */
+.notification-row { outline: none; }
+.notification {
+  margin: 4px;
+  padding: 0;
+  box-shadow: 0 0 14px rgba(58, 224, 255, 0.10);
+}
+.notification-content {
+  background: alpha(@base, 0.96);
+  padding: 10px 14px;
+  border: 1px solid @line;
+  border-left: 2px solid @blue;
+  color: @text;
+}
+.notification.low .notification-content      { border-left-color: @muted; }
+.notification.critical .notification-content { border-left-color: @red; border-color: alpha(@red, 0.5); }
+.notification-default-action, .notification-action {
+  background: transparent; border: none; color: @text;
+}
+.notification-action { background: @surface; margin: 4px; border: 1px solid @line; }
+.notification-action:hover { background: @surface; border-color: @blue; color: @blue; }
+.close-button {
+  background: @surface; color: @muted; border: 1px solid @line;
+  margin: 6px; padding: 0; min-width: 20px; min-height: 20px;
+}
+.close-button:hover { color: @red; border-color: @red; }
+.summary  { font-weight: bold; font-size: 13px; color: @blue; }
+.body     { font-size: 12px; color: @subtext; margin-top: 2px; }
+.time     { font-size: 11px; color: @muted; margin-right: 24px; }
+.app-icon { margin-right: 12px; }
+.image    { margin-right: 10px; }
+
+/* ── control center ─────────────────────────────────── */
+.control-center {
+  background: alpha(@base, 0.97);
+  border: 1px solid @line;
+  border-top: 2px solid @blue;
+  padding: 4px;
+  box-shadow: 0 0 24px rgba(58, 224, 255, 0.08);
+}
+.control-center-list { background: transparent; }
+.control-center .notification-row .notification-background {
+  background: @surface;
+  margin: 4px 8px;
+  border: 1px solid @line;
+}
+.control-center .notification-row .notification-background .notification { box-shadow: none; margin: 0; }
+.control-center .notification-row .notification-background .notification-content { background: transparent; border: none; }
+.control-center .notification-row .notification-background .close-button { margin: 4px; }
+
+/* title */
+.widget-title {
+  color: @blue;
+  margin: 8px 10px 4px 10px;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+.widget-title > button {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: @muted;
+  background: transparent;
+  border: 1px solid @line;
+  padding: 3px 10px;
+}
+.widget-title > button:hover { color: @red; border-color: @red; }
+
+/* shared panel look */
+.widget-volume, .widget-backlight, .widget-dnd, .widget-mpris, .widget-buttons-grid {
+  background: @surface;
+  border: 1px solid @line;
+  margin: 4px 8px;
+  padding: 8px 12px;
+  color: @text;
+}
+
+/* toggle grid */
+.widget-buttons-grid { padding: 6px; }
+.widget-buttons-grid > flowbox > flowboxchild > button {
+  background: @base;
+  color: @muted;
+  border: 1px solid @line;
+  padding: 9px 0;
+  margin: 3px;
+  min-width: 56px;
+  font-size: 16px;
+}
+.widget-buttons-grid > flowbox { padding: 0; }
+.widget-buttons-grid > flowbox > flowboxchild > button:hover { color: @text; border-color: @muted; }
+.widget-buttons-grid > flowbox > flowboxchild > button.toggle:checked {
+  color: @blue;
+  border-color: @blue;
+  background: alpha(@blue, 0.08);
+  text-shadow: 0 0 8px alpha(@blue, 0.6);
+}
+
+/* sliders */
+.widget-volume > box > button, .widget-backlight > box > button {
+  background: transparent; border: none; color: @text;
+}
+.widget-volume > box > label, .widget-backlight > box > label { color: @blue; font-size: 15px; min-width: 24px; }
+.widget-volume scale trough, .widget-backlight scale trough { background: @line; min-height: 4px; }
+.widget-volume scale highlight, .widget-backlight scale highlight { background: @blue; }
+.widget-volume scale slider, .widget-backlight scale slider {
+  background: @text; border: none; min-width: 10px; min-height: 10px; margin: -4px;
+}
+
+/* dnd */
+.widget-dnd > switch { background: @line; border: 1px solid @line; }
+.widget-dnd > switch:checked { background: alpha(@purple, 0.35); border-color: @purple; }
+.widget-dnd > switch slider { background: @text; border: none; }
+.widget-dnd > switch:checked slider { background: @purple; }
+
+/* mpris */
+.widget-mpris-player { background: transparent; padding: 0; }
+.widget-mpris-title { font-weight: bold; font-size: 13px; color: @text; }
+.widget-mpris-subtitle { color: @subtext; font-size: 12px; }
+.widget-mpris > box > button { background: transparent; border: none; color: @muted; }
+.widget-mpris > box > button:hover { color: @blue; }
+.widget-mpris-album-art { border: 1px solid @line; }

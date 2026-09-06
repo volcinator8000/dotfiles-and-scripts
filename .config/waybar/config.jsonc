@@ -1,0 +1,200 @@
+{
+    "layer": "top",
+    "position": "top",
+    "mode": "dock",
+    "exclusive": true,
+    "height": 40,
+    "spacing": 0,
+
+    "modules-left":   ["custom/os_button", "cpu", "memory", "custom/gpu", "disk", "temperature", "hyprland/window"],
+    "modules-center": ["hyprland/workspaces", "clock", "mpris", "custom/lyrics"],
+    "modules-right":  ["custom/updates", "tray", "network", "power-profiles-daemon", "battery", "custom/keepawake", "custom/control", "custom/notification", "custom/power"],
+
+    // ── left: launcher + system stats ──────────────────────────
+    "custom/os_button": {
+        "format": "",
+        "tooltip": false,
+        "on-click": "rofi -show drun",
+        "on-click-right": "python3 ~/.config/sigil-settings/sigil-settings.py"
+    },
+    "cpu": {
+        "interval": 5,
+        "format": "󰻠 {usage}%",
+        "tooltip-format": "load {load}",
+        "on-click": "kitty -e btop"
+    },
+    "memory": {
+        "interval": 10,
+        "format": "󰍛 {percentage}%",
+        "tooltip-format": "{used:0.1f} / {total:0.1f} GiB",
+        "on-click": "kitty -e btop"
+    },
+    "custom/gpu": {
+        "exec": "~/.config/waybar/scripts/gpu.sh",
+        "return-type": "json",
+        "format": "{}",
+        "interval": 3,
+        "tooltip": true,
+        "on-click": "kitty -e btop"
+    },
+    "disk": {
+        "interval": 60,
+        "format": "󰋊 {percentage_used}%",
+        "path": "/",
+        "tooltip-format": "{used} used · {free} free on {path}",
+        "on-click": "kitty -e btop"
+    },
+    "temperature": {
+        "interval": 5,
+        "critical-threshold": 85,
+        "format": "{icon} {temperatureC}°",
+        "format-icons": ["", "", ""],
+        "tooltip": false,
+        "on-click": "kitty -e btop"
+    },
+
+    // ── center: workspaces · clock · window title ──────────────
+    "hyprland/workspaces": {
+        "format": "{icon}",
+        "format-icons": { "default": "○", "active": "◉", "urgent": "◈", "special": "◇" },
+        "all-outputs": true,
+        "disable-scroll": true,
+        "on-click": "activate",
+        "persistent-workspaces": { "*": 3 }
+    },
+    "clock": {
+        "interval": 30,
+        "format": "{:%H:%M}",
+        "format-alt": "{:%a %d %b %Y}",
+        "tooltip-format": "<tt><small>{calendar}</small></tt>",
+        "calendar": {
+            "mode": "month",
+            "weeks-pos": "right",
+            "on-scroll": 1,
+            "format": {
+                "months":   "<span color='#dcdce3'><b>{}</b></span>",
+                "days":     "<span color='#9a9aa8'>{}</span>",
+                "weeks":    "<span color='#a64dff'>W{}</span>",
+                "weekdays": "<span color='#6b6b78'>{}</span>",
+                "today":    "<span color='#3ae0ff'><b><u>{}</u></b></span>"
+            }
+        },
+        "actions": { "on-click-right": "mode", "on-scroll-up": "shift_up", "on-scroll-down": "shift_down" }
+    },
+    "mpris": {
+        "player": "spotify",
+        "format": "{player_icon} {title}",
+        "format-paused": "{status_icon} <i>{title}</i>",
+        "format-stopped": "",
+        "player-icons": { "default": "󰐊", "spotify": "" },
+        "status-icons": { "paused": "󰏤" },
+        "max-length": 22,
+        "min-length": 22,
+        "interval": 1,
+        "tooltip-format": "{artist} — {title}\n{album}",
+        "on-click": "playerctl -p spotify play-pause",
+        "on-scroll-up": "playerctl -p spotify next",
+        "on-scroll-down": "playerctl -p spotify previous"
+    },
+    "custom/lyrics": {
+        "exec": "~/.config/waybar/scripts/lyrics.py",
+        "return-type": "json",
+        "format": "{}",
+        "interval": 1,
+        "max-length": 28,
+        "min-length": 28,
+        "tooltip": true,
+        "on-click": "playerctl -p spotify play-pause"
+    },
+    "hyprland/window": {
+        "format": "{title}",
+        "max-length": 24,
+        "min-length": 24,
+        "separate-outputs": true,
+        "rewrite": { "^$": "" }
+    },
+
+    // ── right: status + actions ────────────────────────────────
+    "custom/updates": {
+        "exec": "~/.config/waybar/scripts/updates.sh",
+        "exec-if": "which fakeroot paru",
+        "return-type": "json",
+        "format": "{}",
+        "interval": 14400,
+        "signal": 9,
+        "on-click": "~/.config/waybar/scripts/update-now.sh",
+        "on-click-right": "pkill -RTMIN+9 waybar",
+        "tooltip": true
+    },
+    "tray": {
+        "icon-size": 16,
+        "spacing": 8
+    },
+    "network": {
+        "interval": 5,
+        "format-wifi": "{icon} {signalStrength}%",
+        "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
+        "format-ethernet": "󰈀",
+        "format-linked": "󰤫",
+        "format-disconnected": "󰤮",
+        "tooltip-format-wifi": "{essid}\n{ipaddr} · ↓{bandwidthDownBits} ↑{bandwidthUpBits}",
+        "tooltip-format-ethernet": "{ifname} · {ipaddr}",
+        "tooltip-format-disconnected": "disconnected",
+        "on-click": "nm-connection-editor"
+    },
+    "power-profiles-daemon": {
+        "format": "{icon}",
+        "tooltip-format": "profile: {profile}\nepp: {epp}",
+        "format-icons": { "default": "󰗑", "performance": "󱐋", "balanced": "󰗑", "power-saver": "󰌪" }
+    },
+    "battery": {
+        "interval": 30,
+        "states": { "warning": 30, "critical": 15 },
+        "format": "{icon} {capacity}%",
+        "format-charging": "󰂄 {capacity}%",
+        "format-plugged": "󰚥 {capacity}%",
+        "format-full": "󰁹 {capacity}%",
+        "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
+        "tooltip-format": "{timeTo}\n{power:.1f} W · health {health}%"
+    },
+    "custom/keepawake": {
+        "exec": "~/.config/waybar/scripts/keepawake.sh",
+        "return-type": "json",
+        "interval": 60,
+        "signal": 8,
+        "format": "{}",
+        "tooltip-format": "keep awake: idle lock/sleep inhibited\nclick to release",
+        "on-click": "~/.config/swaync/keepawake.sh off"
+    },
+    "custom/control": {
+        "format": "󰕮",
+        "tooltip-format": "control center",
+        "on-click": "swaync-client -t -sw",
+        "on-click-right": "swaync-client -d -sw"
+    },
+    "custom/notification": {
+        "tooltip": false,
+        "format": "{icon}",
+        "format-icons": {
+            "notification": "󱅫",
+            "none": "󰂚",
+            "dnd-notification": "󰂛",
+            "dnd-none": "󰂛",
+            "inhibited-notification": "󱅫",
+            "inhibited-none": "󰂚",
+            "dnd-inhibited-notification": "󰂛",
+            "dnd-inhibited-none": "󰂛"
+        },
+        "return-type": "json",
+        "exec-if": "which swaync-client",
+        "exec": "swaync-client -swb",
+        "on-click": "swaync-client -t -sw",
+        "on-click-right": "swaync-client -d -sw",
+        "escape": true
+    },
+    "custom/power": {
+        "format": "⏻",
+        "tooltip": false,
+        "on-click": "wlogout --protocol layer-shell"
+    }
+}

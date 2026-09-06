@@ -1,0 +1,149 @@
+/* cybersigilism waybar */
+@define-color base    #050507;
+@define-color surface #0d0d12;
+@define-color line    #1b1b24;
+@define-color text    #dcdce3;
+@define-color muted   #6b6b78;
+@define-color blue    #3ae0ff;   /* cherenkov glow */
+@define-color red     #ff2d3a;   /* communication */
+@define-color green   #39ff14;   /* graphical wavelength */
+@define-color orange  #ff5a1f;   /* infrared sunset */
+@define-color amber   #ffb000;   /* phosphorus display */
+@define-color pink    #ff5cc8;   /* snooze button */
+@define-color purple  #a64dff;   /* plasmatic */
+
+* {
+    font-family: "JetBrainsMono Nerd Font", "Symbols Nerd Font", sans-serif;
+    font-size: 13px;
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+}
+
+window#waybar {
+    background: alpha(@base, 0.84);
+    color: @text;
+    border-bottom: 1px solid @blue;
+    box-shadow: 0 1px 12px rgba(58, 224, 255, 0.08);
+}
+
+tooltip {
+    background: @base;
+    border: 1px solid @line;
+    border-left: 2px solid @blue;
+    padding: 6px;
+}
+tooltip label { color: @text; }
+
+/* ── generic cell: hairline separators, subtle hover ─────────── */
+.modules-left  > widget > *,
+.modules-right > widget > * {
+    padding: 0 11px;
+    color: @text;
+    border-right: 1px solid @line;
+    transition: color 120ms ease, background 120ms ease;
+}
+.modules-right > widget:last-child > * { border-right: none; }
+.modules-left  > widget > *:hover,
+.modules-right > widget > *:hover { background: alpha(@surface, 0.9); }
+
+/* ── left ──────────────────────────────────────────────────── */
+#custom-os_button { color: @blue; font-size: 18px; padding: 0 14px; }
+#custom-os_button:hover { text-shadow: 0 0 8px alpha(@blue, 0.8); }
+#cpu         { color: @blue; }
+#memory      { color: @purple; }
+#disk        { color: @pink; }
+#temperature { color: @orange; }
+#temperature.critical { color: @red; animation: blink 0.6s linear infinite alternate; }
+
+/* ── center ────────────────────────────────────────────────── */
+#workspaces { padding: 0 6px; }
+#workspaces button {
+    padding: 0 7px;
+    color: @muted;
+    font-size: 12px;
+    background: transparent;
+    border-bottom: 1px solid transparent;
+    transition: all 120ms ease;
+}
+#workspaces button.active {
+    color: @blue;
+    border-bottom: 1px solid @blue;
+    text-shadow: 0 0 6px alpha(@blue, 0.6);
+}
+#workspaces button.urgent  { color: @red; }
+#workspaces button.special { color: @purple; }
+#workspaces button.empty   { color: alpha(@muted, 0.5); }
+#workspaces button:hover   { color: @text; background: alpha(@surface, 0.9); }
+
+#clock {
+    color: @orange;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 0 16px;
+    border-left: 1px solid @line;
+    border-right: 1px solid @line;
+}
+#mpris {
+    color: @green;
+    font-size: 12px;
+    padding: 0 12px;
+    border-right: 1px solid @line;
+}
+#mpris.paused { color: @muted; }
+#custom-lyrics {
+    color: @text;
+    font-style: italic;
+    font-size: 12px;
+    padding: 0 12px;
+}
+#custom-lyrics.synced { color: @blue; }
+#custom-lyrics.paused { color: @muted; }
+#custom-lyrics.plain  { color: @green; }
+#custom-lyrics.none   { padding: 0; min-width: 0; }
+
+/* ── right ─────────────────────────────────────────────────── */
+#custom-updates          { color: @amber; }
+#custom-updates.many     { color: @red; }
+#custom-updates.uptodate,
+#custom-updates.offline  { padding: 0; border: none; min-width: 0; }
+
+#tray { padding: 0 8px; }
+#tray > .passive { -gtk-icon-effect: dim; }
+#tray > .needs-attention { -gtk-icon-effect: highlight; }
+#tray menu { background: @base; border: 1px solid @line; }
+
+#network              { color: @green; }
+#network.linked       { color: @amber; }
+#network.disconnected { color: @red; }
+
+#battery              { color: @green; }
+#battery.charging, #battery.plugged { color: @blue; }
+#battery.warning:not(.charging)  { color: @amber; }
+#battery.critical:not(.charging) { color: @red; animation: blink 0.5s linear infinite alternate; }
+
+#custom-keepawake    { color: @amber; font-size: 15px; text-shadow: 0 0 8px alpha(@amber, 0.7); }
+#custom-control      { color: @blue; font-size: 15px; }
+#custom-notification { color: @amber; font-size: 15px; }
+#custom-notification.none, #custom-notification.dnd-none, #custom-notification.inhibited-none,
+#custom-notification.dnd-inhibited-none { color: @muted; }
+#custom-notification.dnd-notification, #custom-notification.dnd-inhibited-notification { color: @purple; }
+#custom-power        { color: @red; font-size: 14px; padding: 0 13px; }
+#custom-power:hover  { text-shadow: 0 0 8px alpha(@red, 0.8); }
+
+@keyframes blink { to { background-color: @red; color: @base; } }
+
+/* gpu + power profile */
+#custom-gpu          { color: @green; }
+#custom-gpu.dgpu     { color: @pink; }
+#custom-gpu.critical { color: @red; }
+#power-profiles-daemon                { color: @muted; font-size: 15px; }
+#power-profiles-daemon.performance    { color: @orange; }
+#power-profiles-daemon.balanced       { color: @amber; }
+#power-profiles-daemon.power-saver    { color: @green; }
+
+/* active window title */
+#window { color: @muted; font-style: italic; font-size: 12px; padding: 0 12px; }
+window#waybar.empty #window { color: transparent; }

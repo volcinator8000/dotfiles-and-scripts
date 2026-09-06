@@ -1,0 +1,37 @@
+/* cybersigilism wlogout */
+* {
+    background-image: none;
+    box-shadow: none;
+    font-family: "JetBrainsMono Nerd Font";
+}
+
+window { background-color: rgba(5, 5, 7, 0.9); }
+
+button {
+    color: #6b6b78;
+    background-color: #0d0d12;
+    border: 1px solid #1b1b24;
+    border-radius: 0;
+    margin: 10px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 20%;
+    font-size: 13px;
+    transition: all 120ms ease;
+}
+
+button:focus, button:active, button:hover {
+    background-color: #0d0d12;
+    border-color: #3ae0ff;
+    color: #3ae0ff;
+    outline-style: none;
+}
+#shutdown:hover, #shutdown:focus { border-color: #ff2d3a; color: #ff2d3a; }
+#reboot:hover,   #reboot:focus   { border-color: #ffb000; color: #ffb000; }
+
+#lock      { background-image: image(url("/usr/share/wlogout/icons/lock.png")); }
+#logout    { background-image: image(url("/usr/share/wlogout/icons/logout.png")); }
+#suspend   { background-image: image(url("/usr/share/wlogout/icons/suspend.png")); }
+#hibernate { background-image: image(url("/usr/share/wlogout/icons/hibernate.png")); }
+#shutdown  { background-image: image(url("/usr/share/wlogout/icons/shutdown.png")); }
+#reboot    { background-image: image(url("/usr/share/wlogout/icons/reboot.png")); }

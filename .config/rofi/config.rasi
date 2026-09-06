@@ -1,0 +1,93 @@
+configuration {
+    modi: "drun,run";
+    show-icons: true;
+    icon-theme: "Papirus-Dark";
+    font: "JetBrainsMono Nerd Font 12";
+    display-drun: "";
+    display-run: "";
+    drun-display-format: "{icon} {name}";
+    hover-select: true;
+    me-select-entry: "";
+    me-accept-entry: "MousePrimary";
+}
+
+/* cybersigilism */
+* {
+    base:    #050507F2;
+    surface: #0d0d12;
+    line:    #1b1b24;
+    text:    #dcdce3;
+    muted:   #6b6b78;
+    accent:  #3ae0ff;
+    accent2: #a64dff;
+
+    background-color: transparent;
+    text-color: @text;
+    margin: 0;
+    padding: 0;
+    spacing: 0;
+}
+
+window {
+    width: 36%;
+    background-color: @base;
+    border: 1px;
+    border-color: @accent;
+    border-radius: 0px;
+}
+
+mainbox {
+    padding: 14px;
+    spacing: 10px;
+}
+
+inputbar {
+    background-color: @surface;
+    border: 0 0 1px 0;
+    border-color: @line;
+    padding: 10px 12px;
+    spacing: 10px;
+    children: [prompt, entry];
+}
+
+prompt {
+    text-color: @accent;
+    font: "JetBrainsMono Nerd Font 13";
+}
+
+entry {
+    placeholder: "> _";
+    placeholder-color: @muted;
+    cursor: text;
+}
+
+listview {
+    columns: 2;
+    lines: 7;
+    spacing: 2px;
+    scrollbar: false;
+    cycle: true;
+    fixed-height: true;
+}
+
+element {
+    padding: 7px 10px;
+    spacing: 10px;
+    border: 0 0 0 2px;
+    border-color: transparent;
+    cursor: pointer;
+}
+
+element normal.normal, element alternate.normal {
+    background-color: transparent;
+    text-color: @text;
+}
+
+element selected.normal {
+    background-color: #0d0d12;
+    border-color: @accent;
+    text-color: @accent;
+}
+
+element-icon { size: 22px; cursor: inherit; }
+element-text { vertical-align: 0.5; cursor: inherit; text-color: inherit; }

@@ -1,0 +1,25 @@
+# macchina theme — cybersigilism
+spacing = 2
+padding = 1
+hide_ascii = false
+prefer_small_ascii = true
+separator = "//"
+key_color = "#3ae0ff"
+separator_color = "#6b6b78"
+
+[custom_ascii]
+color = "#a64dff"
+path = "~/.config/macchina/themes/cybersigil.ascii"
+
+[keys]
+host = "HOST"
+kernel = "KERNEL"
+distro = "DISTRO"
+wm = "WM"
+terminal = "TERM"
+shell = "SHELL"
+packages = "PKGS"
+uptime = "UPTIME"
+memory = "MEM"
+cpu = "CPU"
+gpu = "GPU"

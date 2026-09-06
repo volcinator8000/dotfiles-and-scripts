@@ -1,0 +1,8 @@
+theme = "cybersigil"
+show = ["Host", "Distribution", "Kernel", "WindowManager", "Shell", "Terminal", "Packages", "Uptime", "Memory", "Processor", "GPU"]
+interface = "wlo1"
+long_uptime = false
+long_shell = false
+long_kernel = false
+physical_cores = true
+current_shell = true

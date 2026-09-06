@@ -1,0 +1,127 @@
+{
+  "$schema": "/etc/xdg/swaync/configSchema.json",
+  "positionX": "right",
+  "positionY": "top",
+  "layer": "overlay",
+  "control-center-layer": "top",
+  "cssPriority": "user",
+  "control-center-margin-top": 6,
+  "control-center-margin-right": 6,
+  "control-center-width": 380,
+  "control-center-height": 700,
+  "fit-to-screen": false,
+  "notification-window-width": 400,
+  "notification-icon-size": 48,
+  "notification-body-image-height": 100,
+  "notification-body-image-width": 200,
+  "timeout": 8,
+  "timeout-low": 5,
+  "timeout-critical": 0,
+  "keyboard-shortcuts": true,
+  "image-visibility": "when-available",
+  "transition-time": 150,
+  "hide-on-clear": false,
+  "hide-on-action": true,
+  "script-fail-notify": true,
+  "widgets": [
+    "title",
+    "buttons-grid",
+    "volume",
+    "backlight",
+    "mpris",
+    "dnd",
+    "notifications"
+  ],
+  "widget-config": {
+    "title": {
+      "text": "CONTROL // CENTER",
+      "clear-all-button": true,
+      "button-text": "clear"
+    },
+    "dnd": {
+      "text": "Do not disturb"
+    },
+    "volume": {
+      "label": "󰕾",
+      "show-per-app": false
+    },
+    "backlight": {
+      "label": "󰃠",
+      "device": "amdgpu_bl2",
+      "min": 1
+    },
+    "mpris": {
+      "image-size": 72,
+      "image-radius": 0,
+      "blur": false,
+      "blacklist": [
+        "playerctld"
+      ]
+    },
+    "buttons-grid": {
+      "actions": [
+        {
+          "label": "󰖩",
+          "type": "toggle",
+          "active": true,
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && nmcli radio wifi on || nmcli radio wifi off'",
+          "update-command": "sh -c '[[ $(nmcli radio wifi) == enabled ]] && echo true || echo false'"
+        },
+        {
+          "label": "󰂯",
+          "type": "toggle",
+          "active": true,
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && bluetoothctl power on || bluetoothctl power off'",
+          "update-command": "sh -c 'bluetoothctl show | grep -q Powered:.yes && echo true || echo false'"
+        },
+        {
+          "label": "󰍭",
+          "type": "toggle",
+          "active": false,
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1 || wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0'",
+          "update-command": "sh -c 'wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED && echo true || echo false'"
+        },
+        {
+          "label": "󰅶",
+          "type": "toggle",
+          "active": false,
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/swaync/keepawake.sh on || ~/.config/swaync/keepawake.sh off'",
+          "update-command": "/home/kali/.config/swaync/keepawake.sh state"
+        },
+        {
+          "label": "󰖔",
+          "type": "toggle",
+          "active": false,
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/swaync/nightlight.sh on || ~/.config/swaync/nightlight.sh off'",
+          "update-command": "/home/kali/.config/swaync/nightlight.sh state"
+        },
+        {
+          "label": "󱐋",
+          "type": "toggle",
+          "active": false,
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && powerprofilesctl set performance || powerprofilesctl set power-saver; pkill -RTMIN+10 waybar'",
+          "update-command": "sh -c '[[ $(powerprofilesctl get) == performance ]] && echo true || echo false'"
+        },
+        {
+          "label": "󰌌",
+          "type": "toggle",
+          "active": false,
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh start || ~/.config/keysound/keysound.sh stop'",
+          "update-command": "/home/kali/.config/keysound/keysound.sh state"
+        },
+        {
+          "label": "󰅇",
+          "command": "sh -c 'swaync-client -cp; ~/.config/rofi/clip.sh'"
+        },
+        {
+          "label": "󰌾",
+          "command": "loginctl lock-session"
+        },
+        {
+          "label": "⏻",
+          "command": "wlogout --protocol layer-shell"
+        }
+      ]
+    }
+  }
+}
