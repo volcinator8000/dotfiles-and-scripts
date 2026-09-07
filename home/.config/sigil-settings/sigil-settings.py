@@ -97,6 +97,31 @@ def restart(proc, command=None):
     GLib.timeout_add(300, lambda: (hypr_exec(command or proc), False)[1])
 
 
+def run_async(cmd, done, timeout=30):
+    """Run a command off the main loop; `done(stdout, returncode)` is called back on the GTK thread."""
+    import threading
+    def work():
+        try:
+            r = subprocess.run(cmd, shell=isinstance(cmd, str), capture_output=True, text=True, timeout=timeout)
+            out, rc = (r.stdout + r.stderr).strip(), r.returncode
+        except (subprocess.SubprocessError, OSError) as e:
+            out, rc = str(e), 1
+        GLib.idle_add(lambda: (done(out, rc), False)[1])
+    threading.Thread(target=work, daemon=True).start()
+
+
+def ask_password(parent, title, body, cb):
+    """Adw.AlertDialog with a password entry; cb(password) on confirm."""
+    dlg = Adw.AlertDialog(heading=title, body=body)
+    entry = Gtk.PasswordEntry(show_peek_icon=True, placeholder_text="password")
+    entry.set_margin_top(6); dlg.set_extra_child(entry)
+    dlg.add_response("cancel", "Cancel"); dlg.add_response("ok", "Connect")
+    dlg.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED); dlg.set_default_response("ok")
+    entry.connect("activate", lambda *_: dlg.response("ok"))
+    dlg.connect("response", lambda _d, r: cb(entry.get_text()) if r == "ok" else None)
+    dlg.present(parent)
+
+
 def read(path, default=""):
     try:
         with open(path) as f:
@@ -262,6 +287,7 @@ class SoundsPage(Adw.PreferencesPage):
         super().__init__(title="Sounds", icon_name="audio-input-microphone-symbolic")
         self.toast = toast
         cfg = self.read_cfg()
+        self.audio_group()
         g = Adw.PreferencesGroup(title="Typewriter key sounds",
                                  description="Mechanical key clicks synthesised in the theme. Runs as a small daemon reading the keyboard.")
         self.enabled = Adw.SwitchRow(title="Key sounds", subtitle="Start or stop the daemon")
@@ -286,6 +312,45 @@ class SoundsPage(Adw.PreferencesPage):
                          ("Open folder", lambda: spawn(["xdg-open", os.path.join(KS, "packs")]), None)))
         g.add(button_row("Regenerate packs", "Re-synthesise the built-in packs from gen-sounds.py (a few seconds)",
                          ("Regenerate", self.regen, None)))
+        self.add(g)
+
+    # ── audio (wireplumber) ──
+    @staticmethod
+    def wp_nodes(kind):
+        """[(id, name, is_default)] for 'Sinks' or 'Sources' from `wpctl status`."""
+        out, nodes, grab = run(["wpctl", "status"]), [], False
+        for line in out.splitlines():
+            if re.search(rf"\b{kind}:", line):
+                grab = True; continue
+            if grab:
+                m = re.match(r"\s*[│|]?\s*(\*?)\s*(\d+)\.\s+(.*?)\s+\[vol:", line)
+                if m:
+                    nodes.append((int(m.group(2)), m.group(3).strip(), m.group(1) == "*"))
+                elif line.strip() in ("│", "") or "├─" in line:
+                    if nodes:
+                        break
+        return nodes
+
+    @staticmethod
+    def wp_vol(target):
+        m = re.search(r"Volume:\s*([\d.]+)(.*)", run(["wpctl", "get-volume", target]))
+        return (float(m.group(1)) * 100 if m else 0.0, bool(m and "MUTED" in m.group(2)))
+
+    def audio_group(self):
+        g = Adw.PreferencesGroup(title="Audio", description="Default devices and levels (wireplumber).")
+        for kind, target, title in (("Sinks", "@DEFAULT_AUDIO_SINK@", "Output"), ("Sources", "@DEFAULT_AUDIO_SOURCE@", "Input")):
+            nodes = self.wp_nodes(kind)
+            combo = Adw.ComboRow(title=title, subtitle="default device")
+            combo.set_model(Gtk.StringList.new([n[1] for n in nodes] or ["none"]))
+            cur = next((i for i, n in enumerate(nodes) if n[2]), 0); combo.set_selected(cur)
+            combo.connect("notify::selected", lambda r, _, ns=nodes: ns and (run(["wpctl", "set-default", str(ns[r.get_selected()][0])]), self.toast(f"Default: {ns[r.get_selected()][1]}")))
+            g.add(combo)
+            vol, muted = self.wp_vol(target)
+            row = scale_row(f"{title} volume", "muted" if muted else "", min(vol, 150), lambda v, t=target: run(["wpctl", "set-volume", t, f"{int(v)}%"]), lo=0, hi=150)
+            mute = Gtk.ToggleButton(icon_name="audio-volume-muted-symbolic" if title == "Output" else "microphone-disabled-symbolic", valign=Gtk.Align.CENTER, active=muted, tooltip_text="Mute")
+            mute.connect("toggled", lambda b, t=target, r=row: (run(["wpctl", "set-mute", t, "1" if b.get_active() else "0"]), r.set_subtitle("muted" if b.get_active() else "")))
+            row.add_suffix(mute); g.add(row)
+        g.add(button_row("Mixer", "per-app volumes, ports, profiles", ("Open pavucontrol", lambda: spawn(["pavucontrol"]), None)))
         self.add(g)
 
     @staticmethod
@@ -675,6 +740,129 @@ class InputPage(Adw.PreferencesPage):
         run(["hyprctl", "reload"]); self.toast("local.lua removed, back to hyprland.lua defaults")
 
 
+class NetworkPage(Adw.PreferencesPage):
+    """Wi-Fi via nmcli, Bluetooth via bluetoothctl. Scans and connects run in threads."""
+    def __init__(self, toast, app):
+        super().__init__(title="Network", icon_name="network-wireless-symbolic")
+        self.toast = toast
+        self.wifi_dev = next((l.split(":")[0] for l in run(["nmcli", "-t", "-f", "DEVICE,TYPE", "dev"]).splitlines() if l.endswith(":wifi")), "wlan0")
+
+        g = Adw.PreferencesGroup(title="Wi-Fi")
+        self.wifi_sw = Adw.SwitchRow(title="Wi-Fi", subtitle=self.wifi_dev)
+        self.wifi_sw.set_active(run(["nmcli", "radio", "wifi"]) == "enabled")
+        self.wifi_sw.connect("notify::active", lambda r, _: (run(["nmcli", "radio", "wifi", "on" if r.get_active() else "off"]),
+                                                              GLib.timeout_add(1500, lambda: (self.scan_wifi(), False)[1])))
+        g.add(self.wifi_sw); self.add(g)
+
+        self.wifi_group = Adw.PreferencesGroup(title="Networks")
+        b = Gtk.Button(label="Rescan", valign=Gtk.Align.CENTER); b.connect("clicked", lambda *_: self.scan_wifi(rescan=True))
+        self.wifi_group.set_header_suffix(b)
+        self.wifi_rows = []
+        self.add(self.wifi_group)
+        self.scan_wifi()
+
+        g = Adw.PreferencesGroup(title="Bluetooth")
+        self.bt_sw = Adw.SwitchRow(title="Bluetooth", subtitle="adapter power")
+        self.bt_sw.set_active("Powered: yes" in run(["bluetoothctl", "show"]))
+        self.bt_sw.connect("notify::active", lambda r, _: (run(["bluetoothctl", "power", "on" if r.get_active() else "off"]),
+                                                            GLib.timeout_add(800, lambda: (self.list_bt(), False)[1])))
+        g.add(self.bt_sw); self.add(g)
+
+        self.bt_group = Adw.PreferencesGroup(title="Devices")
+        self.bt_scan_btn = Gtk.Button(label="Scan 8 s", valign=Gtk.Align.CENTER); self.bt_scan_btn.connect("clicked", lambda *_: self.scan_bt())
+        self.bt_group.set_header_suffix(self.bt_scan_btn)
+        self.bt_rows = []
+        self.add(self.bt_group)
+        self.list_bt()
+
+    # ── wifi ──
+    def scan_wifi(self, rescan=False):
+        args = ["nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY,BSSID", "dev", "wifi", "list"] + (["--rescan", "yes"] if rescan else [])
+        self.wifi_group.set_description("scanning…" if rescan else None)
+        run_async(args, self.fill_wifi, timeout=25)
+
+    def fill_wifi(self, out, rc):
+        for r in self.wifi_rows:
+            self.wifi_group.remove(r)
+        self.wifi_rows.clear()
+        active = {l.split(":")[0] for l in run(["nmcli", "-t", "-f", "NAME,DEVICE", "con", "show", "--active"]).splitlines() if l.endswith(":" + self.wifi_dev)}
+        known = {l.split(":")[0] for l in run(["nmcli", "-t", "-f", "NAME,TYPE", "con", "show"]).splitlines() if l.endswith("802-11-wireless")}
+        seen, nets = set(), []
+        for line in out.splitlines():
+            parts = line.replace("\\:", "\x00").split(":")
+            if len(parts) < 3:
+                continue
+            ssid, sig, sec = parts[0], parts[1], parts[2]
+            if not ssid or ssid in seen:
+                continue
+            seen.add(ssid); nets.append((ssid, int(sig or 0), sec))
+        nets.sort(key=lambda n: (n[0] not in active, -n[1]))
+        self.wifi_group.set_description(f"{len(nets)} network(s) · {self.wifi_dev}" if nets else ("Wi-Fi is off" if not self.wifi_sw.get_active() else "nothing found"))
+        for ssid, sig, sec in nets:
+            row = Adw.ActionRow(title=ssid, subtitle=f"{sig}%  ·  {sec or 'open'}" + ("  ·  saved" if ssid in known and ssid not in active else ""))
+            icon = "network-wireless-signal-excellent-symbolic" if sig > 75 else "network-wireless-signal-good-symbolic" if sig > 50 else "network-wireless-signal-ok-symbolic" if sig > 25 else "network-wireless-signal-weak-symbolic"
+            row.add_prefix(Gtk.Image.new_from_icon_name(icon))
+            if ssid in active:
+                row.add_css_class("accent"); row.set_title(f"{ssid}  ✓")
+                b = Gtk.Button(label="Disconnect", valign=Gtk.Align.CENTER); b.connect("clicked", lambda *_: self.wifi_cmd(["nmcli", "dev", "disconnect", self.wifi_dev], "Disconnected"))
+                row.add_suffix(b)
+            else:
+                b = Gtk.Button(label="Connect", valign=Gtk.Align.CENTER, css_classes=["suggested-action"])
+                b.connect("clicked", lambda _b, ss=ssid, sc=sec, kn=(ssid in known): self.connect_wifi(ss, sc, kn)); row.add_suffix(b)
+                if ssid in known:
+                    f = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER, tooltip_text="Forget network", css_classes=["flat"])
+                    f.connect("clicked", lambda _b, ss=ssid: self.wifi_cmd(["nmcli", "con", "delete", "id", ss], f"Forgot {ss}")); row.add_suffix(f)
+            self.wifi_group.add(row); self.wifi_rows.append(row)
+
+    def connect_wifi(self, ssid, sec, known):
+        if known or not sec:
+            self.wifi_cmd(["nmcli", "con", "up", "id", ssid] if known else ["nmcli", "dev", "wifi", "connect", ssid], f"Connected to {ssid}")
+        else:
+            ask_password(self.get_root(), ssid, f"{sec} network", lambda pw: self.wifi_cmd(["nmcli", "dev", "wifi", "connect", ssid, "password", pw], f"Connected to {ssid}"))
+
+    def wifi_cmd(self, cmd, ok_msg):
+        self.toast("Working…")
+        run_async(cmd, lambda out, rc: (self.toast(ok_msg if rc == 0 else out.splitlines()[-1][:90] if out else "failed"), self.scan_wifi()), timeout=45)
+
+    # ── bluetooth ──
+    def list_bt(self):
+        for r in self.bt_rows:
+            self.bt_group.remove(r)
+        self.bt_rows.clear()
+        if not self.bt_sw.get_active():
+            self.bt_group.set_description("Bluetooth is off"); return
+        devs = []
+        for line in run(["bluetoothctl", "devices"]).splitlines():
+            m = re.match(r"Device ([0-9A-F:]{17}) (.*)", line)
+            if m:
+                info = run(["bluetoothctl", "info", m.group(1)])
+                devs.append((m.group(2), m.group(1), "Connected: yes" in info, "Paired: yes" in info, "Trusted: yes" in info))
+        devs.sort(key=lambda d: (not d[2], not d[3], d[0].lower()))
+        self.bt_group.set_description(f"{len(devs)} device(s)" if devs else "no devices known; scan to find some")
+        for name, mac, conn, paired, trusted in devs:
+            row = Adw.ActionRow(title=f"{name}  ✓" if conn else name, subtitle=f"{mac}  ·  " + ("connected" if conn else "paired" if paired else "seen, not paired"))
+            row.add_prefix(Gtk.Image.new_from_icon_name("bluetooth-active-symbolic" if conn else "bluetooth-symbolic"))
+            if conn:
+                b = Gtk.Button(label="Disconnect", valign=Gtk.Align.CENTER); b.connect("clicked", lambda _b, m=mac: self.bt_cmd(["bluetoothctl", "disconnect", m], "Disconnected"))
+            elif paired:
+                b = Gtk.Button(label="Connect", valign=Gtk.Align.CENTER, css_classes=["suggested-action"]); b.connect("clicked", lambda _b, m=mac: self.bt_cmd(["bluetoothctl", "connect", m], f"Connected {name}"))
+            else:
+                b = Gtk.Button(label="Pair", valign=Gtk.Align.CENTER, css_classes=["suggested-action"])
+                b.connect("clicked", lambda _b, m=mac, n=name: self.bt_cmd(f"bluetoothctl pair {m} && bluetoothctl trust {m} && bluetoothctl connect {m}", f"Paired {n}", 40))
+            row.add_suffix(b)
+            f = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER, tooltip_text="Forget device", css_classes=["flat"])
+            f.connect("clicked", lambda _b, m=mac, n=name: self.bt_cmd(["bluetoothctl", "remove", m], f"Forgot {n}")); row.add_suffix(f)
+            self.bt_group.add(row); self.bt_rows.append(row)
+
+    def scan_bt(self):
+        self.bt_scan_btn.set_sensitive(False); self.bt_group.set_description("scanning for 8 s…")
+        run_async(["bluetoothctl", "--timeout", "8", "scan", "on"], lambda out, rc: (self.bt_scan_btn.set_sensitive(True), self.list_bt()), timeout=20)
+
+    def bt_cmd(self, cmd, ok_msg, timeout=20):
+        self.toast("Working…")
+        run_async(cmd, lambda out, rc: (self.toast(ok_msg if rc == 0 else (out.splitlines()[-1][:90] if out else "failed")), self.list_bt()), timeout=timeout)
+
+
 class AboutPage(Adw.PreferencesPage):
     KEYS = [("SUPER + T", "terminal"), ("SUPER + R", "launcher"), ("SUPER + E", "files"), ("SUPER + B", "browser"),
             ("SUPER + N", "control center"), ("SUPER + I", "this app"), ("SUPER + L", "lock"), ("SUPER + Q", "close window"),
@@ -713,6 +901,7 @@ PAGES = [("dashboard", "Dashboard", "utilities-system-monitor-symbolic", Dashboa
          ("sounds", "Sounds", "audio-input-microphone-symbolic", SoundsPage),
          ("power", "Power", "battery-symbolic", PowerPage),
          ("desktop", "Desktop", "preferences-desktop-wallpaper-symbolic", DesktopPage),
+         ("network", "Network", "network-wireless-symbolic", NetworkPage),
          ("input", "Input", "input-keyboard-symbolic", InputPage),
          ("about", "About", "help-about-symbolic", AboutPage)]
 
