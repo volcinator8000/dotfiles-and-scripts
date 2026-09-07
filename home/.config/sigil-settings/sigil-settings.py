@@ -277,14 +277,18 @@ class DashboardPage(Adw.PreferencesPage):
             watts = f"{int(pw) / 1e6:.1f} W · " if pw.isdigit() and int(pw) else ""
             state = "bad" if cap <= 15 and st == "Discharging" else ("alert" if cap <= 30 and st == "Discharging" else "")
             self.bat.set(f"{cap}%", watts + st.lower(), cap / 100, state)
-        # dGPU: ONLY runtime_status, anything else wakes the card
-        gs = ""
-        for card in ("card1", "card0", "card2"):
-            p = f"/sys/class/drm/{card}/device/power/runtime_status"
-            v = read(p).strip()
-            if v and "amdgpu" in os.path.realpath(f"/sys/class/drm/{card}/device/driver") and read(f"/sys/class/drm/{card}/device/power/control").strip() == "auto":
-                gs = v; break
-        self.gpu.set(gs or "n/a", "runtime power state", state="" if gs != "active" else "alert")
+        # dGPU: ONLY power/runtime_status (a plain PM attribute; busy%/hwmon reads would wake the card),
+        # and only every 5th tick (10 s). The card itself is detected once and cached.
+        self.gpu_ticks = getattr(self, "gpu_ticks", 0) + 1
+        if not hasattr(self, "gpu_card"):
+            self.gpu_card = None
+            for card in ("card1", "card0", "card2"):
+                d = f"/sys/class/drm/{card}/device"
+                if "amdgpu" in os.path.realpath(f"{d}/driver") and read(f"{d}/power/control").strip() == "auto":
+                    self.gpu_card = card; break
+        if self.gpu_ticks % 5 == 1:
+            gs = read(f"/sys/class/drm/{self.gpu_card}/device/power/runtime_status").strip() if self.gpu_card else ""
+            self.gpu.set(gs or "n/a", "runtime power state · every 10 s", state="" if gs != "active" else "alert")
         # uptime
         try:
             secs = float(read("/proc/uptime", "0").split()[0])
