@@ -496,7 +496,7 @@ class PowerPage(Adw.PreferencesPage):
         self.dim_level = spin("Dim level", "percent of full brightness", t["dim_level"], 1, 100, 5)
         self.lock = spin("Lock after", "minutes", t["lock"] / 60, 0, 240, 0.5, 1)
         self.off = spin("Screen off after", "minutes", t["off"] / 60, 0, 240, 0.5, 1)
-        self.sleep = spin("Sleep after", "minutes, suspend-then-hibernate", t["sleep"] / 60, 0, 480, 0.5, 1)
+        self.sleep = spin("Sleep after", "minutes, suspend", t["sleep"] / 60, 0, 480, 0.5, 1)
         for r in (self.dim, self.dim_level, self.lock, self.off, self.sleep):
             g.add(r)
         g.add(button_row("Apply", "Write the config and restart the idle daemon", ("Apply", self.apply_idle, "suggested-action")))
@@ -617,7 +617,7 @@ class PowerPage(Adw.PreferencesPage):
         if off:
             parts += ["", "listener {", f"    timeout = {off}", "    on-timeout = hyprctl dispatch 'hl.dsp.dpms(\"off\")'", "    on-resume = hyprctl dispatch 'hl.dsp.dpms(\"on\")'", "}"]
         if sleep:
-            parts += ["", "listener {", f"    timeout = {sleep}", "    on-timeout = systemctl suspend-then-hibernate", "}"]
+            parts += ["", "listener {", f"    timeout = {sleep}", "    on-timeout = systemctl suspend", "}"]
         with open(HYPRIDLE, "w") as f:
             f.write("\n".join(parts) + "\n")
         restart("hypridle"); self.toast("hypridle restarted with new timers")
