@@ -66,11 +66,13 @@ echo
 # so re-inject the Cybersigil theme. Also covers the very first apply once /opt/spotify is writable.
 SPICE="$HOME/.spicetify/spicetify"; [[ -x "$SPICE" ]] || SPICE="$(command -v spicetify 2>/dev/null)"
 if [[ $rc -eq 0 && -n "$SPICE" && -d /opt/spotify ]]; then
-    spotify_touched=$(awk -v s="$start" '/\[ALPM\] (upgraded|installed|reinstalled) spotify /{print}' /var/log/pacman.log 2>/dev/null | tail -1)
-    never_applied=""; [[ -z "$(ls -A "$HOME/.config/spicetify/Backup" 2>/dev/null)" ]] && never_applied=1
-    if [[ -n "$spotify_touched" || -n "$never_applied" ]]; then
+    since=$(date -d "@$start" +%FT%T)
+    spotify_touched=$(awk -v s="$since" '/\[ALPM\] (upgraded|installed|reinstalled) spotify / && substr($1, 2, 19) >= s' /var/log/pacman.log 2>/dev/null | tail -1)
+    # a pristine install/upgrade leaves xpui.spa packed; once spicetify has injected, it is an unpacked xpui/ dir
+    if [[ -n "$spotify_touched" || -f /opt/spotify/Apps/xpui.spa ]]; then
         if [[ -w /opt/spotify/Apps ]]; then
             printf '  %s▸ spicetify: re-applying Cybersigil theme%s\n' "$B" "$X"
+            "$SPICE" clear >/dev/null 2>&1   # drop the stale backup record from the previous spotify build
             "$SPICE" backup apply 2>&1 | sed 's/^/    /' | tail -4
         else
             printf '  %s▸ spicetify: /opt/spotify not writable, run: sudo chmod a+wr -R /opt/spotify%s\n' "$A" "$X"
