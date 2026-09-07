@@ -56,9 +56,29 @@ echo
 if [[ -n "$DRY" ]]; then printf '  %s[dry run] press Enter to close%s ' "$M" "$X"; read -r _; exit 0; fi
 
 printf '  %s%s%s\n\n' "$M" "$(printf '─%.0s' $(seq 1 108))" "$X"
+start=$(date +%s)
 paru -Syu
 rc=$?
 echo
+
+# ── post-update hooks (user side) ─────────────────────────────────────────
+# spicetify: a spotify upgrade replaces /opt/spotify (pacman hook re-opens the perms),
+# so re-inject the Cybersigil theme. Also covers the very first apply once /opt/spotify is writable.
+SPICE="$HOME/.spicetify/spicetify"; [[ -x "$SPICE" ]] || SPICE="$(command -v spicetify 2>/dev/null)"
+if [[ $rc -eq 0 && -n "$SPICE" && -d /opt/spotify ]]; then
+    spotify_touched=$(awk -v s="$start" '/\[ALPM\] (upgraded|installed|reinstalled) spotify /{print}' /var/log/pacman.log 2>/dev/null | tail -1)
+    never_applied=""; [[ -z "$(ls -A "$HOME/.config/spicetify/Backup" 2>/dev/null)" ]] && never_applied=1
+    if [[ -n "$spotify_touched" || -n "$never_applied" ]]; then
+        if [[ -w /opt/spotify/Apps ]]; then
+            printf '  %s▸ spicetify: re-applying Cybersigil theme%s\n' "$B" "$X"
+            "$SPICE" backup apply 2>&1 | sed 's/^/    /' | tail -4
+        else
+            printf '  %s▸ spicetify: /opt/spotify not writable, run: sudo chmod a+wr -R /opt/spotify%s\n' "$A" "$X"
+        fi
+        echo
+    fi
+fi
+
 if [[ $rc -eq 0 ]]; then printf '  %s✔ done%s' "$G" "$X"; else printf '  %s✘ paru exited with %s%s' "$R" "$rc" "$X"; fi
 printf '  %s— press Enter to close%s ' "$M" "$X"; read -r _
 pkill -RTMIN+9 waybar

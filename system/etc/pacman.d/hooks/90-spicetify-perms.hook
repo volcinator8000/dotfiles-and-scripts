@@ -1,0 +1,12 @@
+# Re-open /opt/spotify for spicetify after every spotify (AUR) install/upgrade.
+# The user-side re-apply is done by ~/.config/waybar/scripts/update-now.sh.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = spotify
+
+[Action]
+Description = Making /opt/spotify writable for spicetify...
+When = PostTransaction
+Exec = /usr/bin/chmod a+wr -R /opt/spotify
