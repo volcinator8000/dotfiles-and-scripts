@@ -123,5 +123,19 @@
         }
       ]
     }
+  },
+  "scripts": {
+    "sound-critical": {
+      "exec": "sh -c '~/.config/keysound/keysound.sh play notify-urgent'",
+      "urgency": "Critical"
+    },
+    "sound-normal": {
+      "exec": "sh -c '~/.config/keysound/keysound.sh play notify'",
+      "urgency": "Normal"
+    },
+    "sound-low": {
+      "exec": "sh -c '~/.config/keysound/keysound.sh play notify'",
+      "urgency": "Low"
+    }
   }
 }

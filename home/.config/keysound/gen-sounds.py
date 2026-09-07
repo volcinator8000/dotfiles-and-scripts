@@ -99,6 +99,16 @@ def animalese():
     n = int(SR * 0.12)
     env = [min(1.0, i / (SR * 0.004)) * math.exp(-max(0, i - SR * 0.01) / (0.035 * SR)) for i in range(n)]
     write("release.wav", fade_out(mul(vowel(n, 520, O), env), 40), 0.3)
+    # ── system events: same voice, short phrases ──
+    gap = lambda ms: [0.0] * int(SR * ms / 1000)
+    write("notify.wav", blip(70, 587 * 1.4, A) + gap(30) + blip(120, 784 * 1.4, E, decay=0.05), 0.45)
+    write("notify-urgent.wav", blip(60, 784 * 1.4, E) + gap(25) + blip(60, 659 * 1.4, A) + gap(25) + blip(140, 494 * 1.4, O, decay=0.06), 0.5)
+    write("lock.wav", blip(70, 659 * 1.4, E) + gap(20) + blip(70, 494 * 1.4, A) + gap(20) + blip(160, 392 * 1.4, U, decay=0.07), 0.42)
+    write("unlock.wav", blip(70, 392 * 1.4, U) + gap(20) + blip(70, 494 * 1.4, A) + gap(20) + blip(160, 659 * 1.4, E, decay=0.07), 0.42)
+    write("shutter.wav", blip(45, 880 * 1.4, E, attack_ms=1, decay=0.015) + gap(40) + blip(60, 440 * 1.4, U, attack_ms=1, decay=0.02), 0.45)
+    write("plug.wav", blip(80, 440 * 1.4, A) + gap(30) + blip(130, 659 * 1.4, E, decay=0.05), 0.42)
+    write("unplug.wav", blip(80, 659 * 1.4, E) + gap(30) + blip(130, 440 * 1.4, A, decay=0.05), 0.42)
+    write("batt-low.wav", blip(180, 330 * 1.4, O, decay=0.08) + gap(120) + blip(240, 294 * 1.4, U, decay=0.1), 0.45)
 
 if PACK == "animalese":
     animalese()
@@ -128,5 +138,23 @@ else:
     # hold release: descending blip
     n = int(SR * 0.16)
     write("release.wav", fade_out(mul(lowpass(bitcrush(sine(n, 760, 320), 6), 2200), env_exp(n, 0.04)), 60), 0.26)
+    # ── system events: glassy bitcrushed tones, dark electronic ──
+    def tone(ms, f, f_end=None, tau=0.06, bits=7, cut=3000):
+        n = int(SR * ms / 1000)
+        return fade_out(mul(lowpass(bitcrush(sine(n, f, f_end), bits), cut), env_exp(n, tau)), 12)
+    def seq(*parts):  # concatenate with 25 ms gaps
+        out = []
+        for i, p in enumerate(parts):
+            out += p + ([0.0] * int(SR * 0.025) if i < len(parts) - 1 else [])
+        return out
+    write("notify.wav", seq(tone(90, 880, tau=0.04), tone(200, 1320, tau=0.08)), 0.5)
+    write("notify-urgent.wav", mix(seq(tone(110, 1100, tau=0.05), tone(110, 900, tau=0.05), tone(220, 700, tau=0.09)),
+                                   scale(lowpass(bitcrush(noise(int(SR * 0.47)), 4), 900), 0.12)), 0.55)
+    write("lock.wav", mix(tone(380, 900, 180, tau=0.18, bits=6, cut=2200), scale(mul(lowpass(noise(int(SR * 0.38)), 700), env_exp(int(SR * 0.38), 0.12)), 0.25)), 0.5)
+    write("unlock.wav", mix(tone(320, 180, 900, tau=0.16, bits=6, cut=2600), scale(tone(320, 360, 1800, tau=0.1, cut=3000), 0.4)), 0.5)
+    write("shutter.wav", seq(clack(len_ms=28, tone=3400, tone_gain=0.4, body=200, body_gain=0.3), clack(len_ms=55, tone=1500, tone_gain=0.2, body=110, body_gain=0.7)), 0.6)
+    write("plug.wav", seq(tone(90, 440, tau=0.04), tone(180, 660, tau=0.08)), 0.45)
+    write("unplug.wav", seq(tone(90, 660, tau=0.04), tone(180, 440, tau=0.08)), 0.45)
+    write("batt-low.wav", seq(tone(260, 330, tau=0.12, bits=5, cut=1200), tone(360, 262, tau=0.16, bits=5, cut=1200)), 0.5)
 
 print(PACK, "->", sorted(os.listdir(OUT)))

@@ -215,6 +215,7 @@ class DashboardPage(Adw.PreferencesPage):
 
         self.prev = None
         self.tick_id = 0
+        self.paused = False
         app.profile_cache = app.profile_cache or run(["powerprofilesctl", "get"])
         app.night_cache = run([NIGHTLIGHT, "state"]) == "true"
         self.tick()
@@ -278,27 +279,31 @@ class DashboardPage(Adw.PreferencesPage):
         prof = read("/sys/firmware/acpi/platform_profile").strip() or read(os.path.join(RUNTIME, "ppd-profile")).strip()
         self.prof.set(prof or self.app.profile_cache, "power-profiles-daemon")
         self.night.set("on" if self.app.night_cache else "off", "hyprsunset")
-        self.tick_id = GLib.timeout_add_seconds(2, self.tick)
+        self.tick_id = 0 if self.paused else GLib.timeout_add_seconds(2, self.tick)
         return False
+
+    def pause(self):
+        self.paused = True
+        if self.tick_id:
+            GLib.source_remove(self.tick_id); self.tick_id = 0
+
+    def refresh(self):
+        self.paused = False
+        if not self.tick_id:
+            self.prev = None; self.tick()
 
 
 class SoundsPage(Adw.PreferencesPage):
+    EVENTS = [("keys", "Keystrokes"), ("notify", "Notification"), ("notify-urgent", "Urgent"), ("lock", "Lock"), ("unlock", "Unlock"),
+              ("shutter", "Shutter"), ("plug", "Plug"), ("unplug", "Unplug"), ("batt-low", "Battery low")]
+
     def __init__(self, toast, app):
-        super().__init__(title="Key sounds", icon_name="input-keyboard-symbolic")
+        super().__init__(title="Sound theme", icon_name="emblem-music-symbolic")
         self.toast = toast
         cfg = self.read_cfg()
-        g = Adw.PreferencesGroup(title="Typewriter key sounds",
-                                 description="Mechanical key clicks synthesised in the theme. Runs as a small daemon reading the keyboard.")
-        self.enabled = Adw.SwitchRow(title="Key sounds", subtitle="Start or stop the daemon")
-        self.enabled.set_active(run([KS_SH, "state"]) == "true")
-        self.enabled.connect("notify::active", self.on_enabled)
-        g.add(self.enabled)
-        g.add(scale_row("Volume", "Master level of the mixer", float(cfg.get("volume", 0.45)) * 100,
-                        lambda v: run([KS_SH, "volume", f"{v / 100:.2f}"])))
-        self.add(g)
 
-        g = Adw.PreferencesGroup(title="Sound pack",
-                                 description="Packs live in ~/.config/keysound/packs/NAME/ as ten WAV files: key0-3, space, backspace, mod, enter, hold, release.")
+        g = Adw.PreferencesGroup(title="Theme", description="One pack drives keystrokes, notifications and system events. "
+                                                             "Packs live in ~/.config/keysound/packs/NAME/ as 18 WAV files.")
         self.packs = sorted(d for d in os.listdir(os.path.join(KS, "packs")) if os.path.isdir(os.path.join(KS, "packs", d)))
         self.pack = Adw.ComboRow(title="Active pack", subtitle="Switches live, no restart needed")
         self.pack.set_model(Gtk.StringList.new([self.pretty(p) for p in self.packs]))
@@ -306,12 +311,38 @@ class SoundsPage(Adw.PreferencesPage):
         self.pack.set_selected(self.packs.index(cur) if cur in self.packs else 0)
         self.pack.connect("notify::selected", self.on_pack)
         g.add(self.pack)
-        g.add(button_row("Preview", "Plays the selected pack through the mixer",
-                         ("Preview", self.preview, "suggested-action"),
-                         ("Open folder", lambda: spawn(["xdg-open", os.path.join(KS, "packs")]), None)))
-        g.add(button_row("Regenerate packs", "Re-synthesise the built-in packs from gen-sounds.py (a few seconds)",
-                         ("Regenerate", self.regen, None)))
+        prev = Adw.ActionRow(title="Preview", subtitle="Play each event from the selected pack")
+        flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=5, column_spacing=4, row_spacing=4, valign=Gtk.Align.CENTER)
+        for ev, label in self.EVENTS:
+            b = Gtk.Button(label=label, css_classes=["flat", "sigil-mono"]); b.connect("clicked", lambda _b, e=ev: self.preview(e)); flow.append(b)
+        prev.add_suffix(flow); g.add(prev)
+        g.add(button_row("Pack files", "Open the folder or re-synthesise the built-in packs (a few seconds)",
+                         ("Open folder", lambda: spawn(["xdg-open", os.path.join(KS, "packs")]), None), ("Regenerate", self.regen, None)))
         self.add(g)
+
+        g = Adw.PreferencesGroup(title="Keystrokes", description="Typewriter clicks from a small daemon reading the keyboard.")
+        self.enabled = Adw.SwitchRow(title="Key sounds", subtitle="Start or stop the daemon")
+        self.enabled.set_active(run([KS_SH, "state"]) == "true")
+        self.enabled.connect("notify::active", self.on_enabled)
+        g.add(self.enabled)
+        g.add(scale_row("Volume", "Mixer level for keystrokes", float(cfg.get("volume", 0.45)) * 100, lambda v: run([KS_SH, "volume", f"{v / 100:.2f}"])))
+        self.add(g)
+
+        g = Adw.PreferencesGroup(title="System sounds", description="Notifications, lock/unlock, screenshots, charger, low battery. Silenced by do-not-disturb (except lock/unlock).")
+        self.system = Adw.SwitchRow(title="System sounds")
+        self.system.set_active(cfg.get("system", "true") != "false")
+        self.system.connect("notify::active", lambda r, _: (run([KS_SH, "system", "on" if r.get_active() else "off"]), self.toast("System sounds " + ("on" if r.get_active() else "off"))))
+        g.add(self.system)
+        g.add(scale_row("Volume", "Level for system sounds", float(cfg.get("system_volume", 0.6)) * 100, lambda v: run([KS_SH, "system-volume", f"{v / 100:.2f}"])))
+        self.add(g)
+
+    def preview(self, ev):
+        pack = self.packs[self.pack.get_selected()]
+        if ev == "keys":
+            spawn(["python3", os.path.join(KS, "keysoundd.py"), "--demo", "--pack", pack]); return
+        f = os.path.join(KS, "packs", pack, ev + ".wav")
+        vol = self.read_cfg().get("system_volume", "0.6")
+        spawn(["pw-play", "--volume", vol, f])
 
     @staticmethod
     def pretty(name):
@@ -332,9 +363,6 @@ class SoundsPage(Adw.PreferencesPage):
     def on_pack(self, row, _):
         name = self.packs[row.get_selected()]
         run([KS_SH, "pack", name]); self.toast(f"Pack: {self.pretty(name)}")
-
-    def preview(self):
-        spawn(["python3", os.path.join(KS, "keysoundd.py"), "--demo", "--pack", self.packs[self.pack.get_selected()]])
 
     def regen(self):
         for p in ("cybersigil", "animalese"):
@@ -449,6 +477,14 @@ class PowerPage(Adw.PreferencesPage):
             g.add(r)
         g.add(button_row("Apply", "Write the config and restart the idle daemon", ("Apply", self.apply_idle, "suggested-action")))
         self.add(g)
+
+    def refresh(self):
+        cur = run(["powerprofilesctl", "get"]); self.app.profile_cache = cur
+        if cur in self.profiles and self.profile.get_selected() != self.profiles.index(cur):
+            self.profile.handler_block_by_func(self.on_profile); self.profile.set_selected(self.profiles.index(cur)); self.profile.handler_unblock_by_func(self.on_profile)
+        n = run([NIGHTLIGHT, "state"]) == "true"; self.app.night_cache = n
+        if self.night.get_active() != n:
+            self.night.handler_block_by_func(self.on_night); self.night.set_active(n); self.night.handler_unblock_by_func(self.on_night)
 
     def on_profile(self, row, _):
         if self.profiles:
@@ -592,6 +628,7 @@ class DesktopPage(Adw.PreferencesPage):
             ("hyprsunset", "night light daemon", lambda: restart("hyprsunset")),
             ("Key sounds", "typewriter daemon", lambda: run([KS_SH, "restart"])),
             ("Hyprland config", "hyprctl reload", lambda: run(["hyprctl", "reload"])),
+            ("Settings app", "this window (resident); reloads its code", lambda: spawn("sh -c 'python3 ~/.config/sigil-settings/sigil-settings.py --quit; sleep 1; python3 ~/.config/sigil-settings/sigil-settings.py --hidden'")),
         ):
             g.add(button_row(title, sub, ("Restart", lambda cb=cb, t=title: (cb(), self.toast(f"{t} restarted")), None)))
         self.add(g)
@@ -768,6 +805,9 @@ class WifiPage(Adw.PreferencesPage):
         self.scan_wifi()
 
 
+    def refresh(self):
+        self.scan_wifi()
+
     # ── wifi ──
     def scan_wifi(self, rescan=False):
         args = ["nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY,BSSID", "dev", "wifi", "list"] + (["--rescan", "yes"] if rescan else [])
@@ -834,6 +874,9 @@ class BluetoothPage(Adw.PreferencesPage):
         self.bt_group.set_header_suffix(self.bt_scan_btn)
         self.bt_rows = []
         self.add(self.bt_group)
+        self.list_bt()
+
+    def refresh(self):
         self.list_bt()
 
     # ── bluetooth ──
@@ -914,7 +957,7 @@ PAGES = [("dashboard", "Dashboard", "utilities-system-monitor-symbolic", Dashboa
          ("wifi", "Wi-Fi", "network-wireless-symbolic", WifiPage),
          ("bluetooth", "Bluetooth", "bluetooth-symbolic", BluetoothPage),
          ("audio", "Audio", "audio-speakers-symbolic", AudioPage),
-         ("sounds", "Key sounds", "input-keyboard-symbolic", SoundsPage),
+         ("sounds", "Sound theme", "emblem-music-symbolic", SoundsPage),
          ("power", "Power", "battery-symbolic", PowerPage),
          ("desktop", "Desktop", "preferences-desktop-wallpaper-symbolic", DesktopPage),
          ("input", "Input", "input-mouse-symbolic", InputPage),
@@ -922,18 +965,55 @@ PAGES = [("dashboard", "Dashboard", "utilities-system-monitor-symbolic", Dashboa
 
 
 class App(Adw.Application):
+    """Resident: the window is built once and hidden on close; `--toggle` shows/hides, `--page X` jumps,
+    `--hidden` starts without showing (autostart), `--quit` exits. GApplication routes a second launch here."""
     def __init__(self):
-        super().__init__(application_id="io.sigil.Settings", flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+        super().__init__(application_id="io.sigil.Settings", flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self.profile_cache, self.night_cache = "", False
+        self.win, self.pages, self.holders, self.sidebar = None, {}, {}, None
+
+    def do_startup(self):
+        Adw.Application.do_startup(self)
+        self.hold()  # stay alive with the window hidden
+
+    def do_command_line(self, cmdline):
+        args = cmdline.get_arguments()[1:]
+        if os.environ.get("SIGIL_TIMING"):
+            print(f"command_line {args} visible={self.win.get_visible() if self.win else None} t={time.time() - T_START:.2f}s", file=sys.stderr)
+        if "--quit" in args:
+            self.quit(); return 0
+        if self.win is None:
+            self.build()
+        if "--page" in args:
+            self.select_page(args[args.index("--page") + 1])
+        if "--hidden" in args and not self.win.get_visible():
+            return 0
+        if "--toggle" in args and self.win.get_visible() and self.win.is_active():
+            self.hide_win(); return 0
+        self.show_win(); return 0
 
     def do_activate(self):
-        t0 = time.time()
-        win = self.props.active_window or self.build()
-        if os.environ.get("SIGIL_TIMING"):
-            print(f"build {time.time() - T_START:.2f}s (activate→built {time.time() - t0:.2f}s)", file=sys.stderr)
-            win.connect("map", lambda *_: print(f"map {time.time() - T_START:.2f}s", file=sys.stderr))
-            win.connect("realize", lambda *_: print(f"realize {time.time() - T_START:.2f}s", file=sys.stderr))
-        win.present()
+        if self.win is None:
+            self.build()
+        self.show_win()
+
+    # ── show / hide ──
+    def show_win(self):
+        self.win.present()
+        cur = self.stack.get_visible_child_name()
+        page = self.pages.get(cur)
+        if page is not None and hasattr(page, "refresh"):
+            page.refresh()
+
+    def hide_win(self):
+        self.win.set_visible(False)
+        if "dashboard" in self.pages:
+            self.pages["dashboard"].pause()
+
+    def select_page(self, name):
+        idx = next((i for i, p in enumerate(PAGES) if p[0] == name and p[0] in self.holders), None)
+        if idx is not None:
+            self.sidebar.select_row(self.sidebar.get_row_at_index(idx))
 
     def build(self):
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
@@ -942,12 +1022,13 @@ class App(Adw.Application):
             Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
         win = Adw.ApplicationWindow(application=self, title="SIGIL // SETTINGS", default_width=980, default_height=680)
+        self.win = win
         toasts = Adw.ToastOverlay()
         toast = lambda msg: toasts.add_toast(Adw.Toast(title=msg, timeout=2))
 
-        stack = Adw.ViewStack()
+        stack = Adw.ViewStack(); self.stack = stack
         only = os.environ.get("SIGIL_ONLY", "").split(",") if os.environ.get("SIGIL_ONLY") else None  # debug: subset
-        pages, holders = {}, {}
+        pages, holders = self.pages, self.holders
         for name, title, icon, cls in PAGES:
             if only and name not in only:
                 continue
@@ -956,15 +1037,18 @@ class App(Adw.Application):
 
         def ensure(name):
             if name in pages or name not in holders:
-                return
+                return False
             cls = next(c for n, _, _, c in PAGES if n == name)
             pages[name] = cls(toast, self)
             pages[name].set_hexpand(True); pages[name].set_vexpand(True)
             holders[name].append(pages[name])
+            return True
 
         sidebar = Gtk.ListBox(); sidebar.add_css_class("navigation-sidebar"); sidebar.add_css_class("sigil-sidebar")
-        sidebar.set_size_request(190, -1)
+        sidebar.set_size_request(190, -1); self.sidebar = sidebar
         for name, title, icon, _ in PAGES:
+            if name not in holders:
+                continue
             row = Gtk.ListBoxRow(); row.page = name
             box = Gtk.Box(spacing=10); box.append(Gtk.Image.new_from_icon_name(icon)); box.append(Gtk.Label(label=title, xalign=0))
             row.set_child(box); sidebar.append(row)
@@ -972,7 +1056,11 @@ class App(Adw.Application):
 
         def on_row(_lb, row):
             if row and row.page in holders:
-                ensure(row.page); stack.set_visible_child_name(row.page); title_lbl.set_label(row.page.upper())
+                fresh = ensure(row.page)
+                stack.set_visible_child_name(row.page); title_lbl.set_label(row.page.upper())
+                page = pages[row.page]
+                if not fresh and win.get_visible() and hasattr(page, "refresh"):
+                    page.refresh()
         sidebar.connect("row-selected", on_row)
         brand = Gtk.Label(label="SIGIL // SETTINGS", xalign=0); brand.add_css_class("sigil-brand")
         brand.set_margin_top(16); brand.set_margin_bottom(8); brand.set_margin_start(20)
@@ -986,16 +1074,18 @@ class App(Adw.Application):
             split = Adw.OverlaySplitView(sidebar=side, content=view, sidebar_width_fraction=0.22, min_sidebar_width=180, max_sidebar_width=220)
         toasts.set_child(split); win.set_content(toasts)
 
-        want = sys.argv[sys.argv.index("--page") + 1] if "--page" in sys.argv else "dashboard"
-        idx = next((i for i, p in enumerate(PAGES) if p[0] == want and p[0] in holders), next(i for i, p in enumerate(PAGES) if p[0] in holders))
-        sidebar.select_row(sidebar.get_row_at_index(idx))
+        first = next(i for i, p in enumerate(PAGES) if p[0] in holders)
+        sidebar.select_row(sidebar.get_row_at_index(first))
 
         ctl = Gtk.ShortcutController()
         ctl.add_shortcut(Gtk.Shortcut.new(Gtk.ShortcutTrigger.parse_string("Escape"), Gtk.CallbackAction.new(lambda *_: (win.close(), True)[1])))
         win.add_controller(ctl)
-        win.connect("close-request", lambda *_: (GLib.source_remove(pages["dashboard"].tick_id) if "dashboard" in pages and pages["dashboard"].tick_id else None, False)[1])
+        win.connect("close-request", lambda *_: (self.hide_win(), True)[1])  # close = hide, the app stays resident
+        if os.environ.get("SIGIL_TIMING"):
+            print(f"build {time.time() - T_START:.2f}s", file=sys.stderr)
+            win.connect("map", lambda *_: print(f"map {time.time() - T_START:.2f}s", file=sys.stderr))
         return win
 
 
 if __name__ == "__main__":
-    App().run(None)
+    App().run(sys.argv)

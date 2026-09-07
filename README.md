@@ -23,9 +23,9 @@ Flags: `--skip-packages` `--skip-system` `--apps` (Discord/Slack/Spotify/Zen)
 | `home/.config/hypr` | Hyprland `hyprland.lua`, hyprlock, hypridle, hyprpaper, hyprsunset |
 | `home/.config/waybar` | bar + scripts: update checker, updater window, GPU/power-aware widget, lyrics, keep-awake eye |
 | `home/.config/swaync` | notification center / control center with toggles (`keepawake.sh`, `nightlight.sh`) |
-| `home/.config/keysound` | typewriter key sounds: evdev daemon, pure-python sound synthesis, packs (cybersigil, animalese) |
-| `home/.config/sigil-settings` | GTK4/libadwaita settings app (SUPER+I): dashboard, sounds, power, night light, idle timers, wallpaper gallery, services, input (keyboard/touchpad via `hypr/local.lua`) |
-| `home/.config/hypr/scripts` | lock-screen now-playing (Spotify art + track, cached in `~/.cache/nowplaying`) |
+| `home/.config/keysound` | **sound theme**: evdev typewriter daemon + system sounds, pure-python synthesis, packs (cybersigil, animalese). Each pack = 18 WAVs: `key0-3 space backspace mod enter hold release` (keys) + `notify notify-urgent lock unlock shutter plug unplug batt-low` (system). `keysound.sh play <event>` is what swaync, the lock wrapper, the screenshot script and the battery widget call |
+| `home/.config/sigil-settings` | GTK4/libadwaita settings app (SUPER+I toggles; resident, autostarted hidden): dashboard, sounds, power, night light, idle timers, wallpaper gallery, services, input (keyboard/touchpad via `hypr/local.lua`) |
+| `home/.config/hypr/scripts` | `lock.sh` (lock wrapper: away timer + lock/unlock sounds), `lock-info.sh` (battery/wifi/away labels), now-playing art + text for hyprlock, `shot.sh` (screenshots with shutter + notification) |
 | `home/.config/spicetify/Themes/Cybersigil` | Spotify theme; apply with `sudo chmod a+wr -R /opt/spotify && spicetify backup apply` (redo after Spotify updates) |
 | `home/.config/systemd/user` | `dots-sync.timer`: weekly auto commit + push of this repo (`dots-sync` by hand) |
 | `home/.config/{kitty,rofi,wlogout,macchina,qt6ct,fontconfig}` | themed apps, fonts fallback chain (CJK/emoji) |

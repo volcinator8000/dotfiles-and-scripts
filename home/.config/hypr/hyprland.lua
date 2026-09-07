@@ -59,6 +59,7 @@ hl.on("hyprland.start", function ()
     hl.exec_cmd("wl-paste --type text --watch cliphist store")  -- clipboard history (SUPER+SHIFT+V)
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
     hl.exec_cmd("~/.config/swaync/nightlight.sh autostart") -- night light schedule if enabled (~/.config/hypr/hyprsunset.conf)
+    hl.exec_cmd("bash -c 'sleep 8; python3 ~/.config/sigil-settings/sigil-settings.py --hidden'") -- settings app resident in the background
 end)
 
 -------------------------------
@@ -336,19 +337,15 @@ hl.device({
 -- screenshot stuff
 
 -- Region screenshot, opens in satty for annotation, Ctrl+C copies, Ctrl+S saves
-hl.bind("Print", hl.dsp.exec_cmd(
-  'grim -g "$(slurp)" - | satty -f - --copy-command wl-copy -o "~/Pictures/Screenshots/%Y%m%d_%H%M%S.png"'
-))
+hl.bind("Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/shot.sh region"))          -- region -> satty (annotate, copy, save)
 
 -- Full screen, direct to clipboard
-hl.bind("SUPER + Print", hl.dsp.exec_cmd(
-  'grim -g "$(slurp -d)" - | wl-copy'
-))
+hl.bind("SUPER + Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/shot.sh copy"))    -- region -> clipboard
+hl.bind("SUPER + SHIFT + Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/shot.sh window")) -- active window -> file + clipboard
+hl.bind("SUPER + ALT + Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/shot.sh full"))    -- whole screen -> file + clipboard
 
 -- Fallback bind if laptop sends XF86SELECTIVESCREENSHOT instead of Print
-hl.bind("XF86SELECTIVESCREENSHOT", hl.dsp.exec_cmd(
-  'grim -g "$(slurp)" - | satty --filename - --copy-command wl-copy --early-exit --fullscreen'
-))
+hl.bind("XF86SELECTIVESCREENSHOT", hl.dsp.exec_cmd("~/.config/hypr/scripts/shot.sh region"))
 
 
 -- overview mode
@@ -368,7 +365,7 @@ hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("loginctl lock-session"))
 hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("swaync-client -t -sw"))
 hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("~/.config/rofi/clip.sh")) -- clipboard history
 hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("rofi -show emoji")) -- emoji picker (rofi-emoji)
-hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("python3 ~/.config/sigil-settings/sigil-settings.py")) -- settings applet
+hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("python3 ~/.config/sigil-settings/sigil-settings.py --toggle")) -- settings applet (resident, toggles)
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
 hl.bind(mainMod .. " + T", hl.dsp.exec_cmd(terminal))

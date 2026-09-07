@@ -24,6 +24,19 @@ case "$state" in
     fully-charged) icon=󰁹; class=full; line="fully charged" ;;
     pending-charge|pending-discharge) icon=󰚥; class=plugged; line="plugged, not charging" ;;
 esac
+# ── sound events on state changes (plug / unplug / battery low), state kept in the runtime dir ──
+ST="${XDG_RUNTIME_DIR:-/tmp}/battery-state"; prev=$(cat "$ST" 2>/dev/null); KS=~/.config/keysound/keysound.sh
+if [ -n "$prev" ] && [ "$prev" != "$state" ]; then
+    case "$state" in charging|fully-charged|pending-charge) [ "$prev" = discharging ] && "$KS" play plug ;; discharging) "$KS" play unplug ;; esac
+fi
+echo "$state" > "$ST"
+LOW="${XDG_RUNTIME_DIR:-/tmp}/battery-low-warned"
+if [ "$state" = discharging ] && (( pct <= 15 )); then
+    [ -f "$LOW" ] || { "$KS" play batt-low; notify-send -u critical -a battery -i battery-caution "Battery ${pct}%" "$line"; touch "$LOW"; }
+else rm -f "$LOW"; fi
+if [ "$1" = "--text" ]; then  # plain line for hyprlock
+    case "$state" in charging) echo "󰂄 ${pct}%  ${line}" ;; fully-charged) echo "󰁹 ${pct}%  full" ;; *) echo "${icon} ${pct}%  ${line}" ;; esac; exit 0
+fi
 tip="$line\n$(printf '%.1f' "$rate") W · ${pct}% of $(printf '%.1f' "$ef") Wh\nhealth ${health}% (design $(printf '%.1f' "$efd") Wh)"
 [ -n "$cycles" ] && [ "$cycles" != "N/A" ] && tip+=" · $cycles cycles"
 printf '{"text":"%s %s%%","tooltip":"%s","class":"%s","percentage":%s}\n' "$icon" "$pct" "$tip" "$class" "$pct"
