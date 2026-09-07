@@ -101,8 +101,8 @@
         "return-type": "json",
         "format": "{}",
         "interval": 1,
-        "max-length": 28,
-        "min-length": 28,
+        "max-length": 52,
+        "min-length": 52,
         "tooltip": true,
         "on-click": "playerctl -p spotify play-pause"
     },
