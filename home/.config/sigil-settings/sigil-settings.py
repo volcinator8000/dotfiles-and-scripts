@@ -122,6 +122,29 @@ def ask_password(parent, title, body, cb):
     dlg.present(parent)
 
 
+def snd(event):
+    """UI sound from the active pack (no-op when system sounds are off)."""
+    spawn([KS_SH, "play", event])
+
+
+def wire_sounds(widget):
+    """Walk a page's widget tree once and attach click/toggle sounds to buttons, switches and combos."""
+    w = widget.get_first_child()
+    while w is not None:
+        if isinstance(w, Adw.SwitchRow):
+            w.connect("notify::active", lambda r, _: snd("toggle-on" if r.get_active() else "toggle-off"))
+        elif isinstance(w, Gtk.Switch):
+            pass  # inside SwitchRow, handled above
+        elif isinstance(w, Adw.ComboRow):
+            w.connect("notify::selected", lambda *_: snd("click"))
+        elif isinstance(w, Gtk.ToggleButton):
+            w.connect("toggled", lambda b: snd("toggle-on" if b.get_active() else "toggle-off"))
+        elif isinstance(w, Gtk.Button) and not isinstance(w, Gtk.ToggleButton):
+            w.connect("clicked", lambda *_: snd("click"))
+        wire_sounds(w)
+        w = w.get_next_sibling()
+
+
 def read(path, default=""):
     try:
         with open(path) as f:
@@ -295,7 +318,8 @@ class DashboardPage(Adw.PreferencesPage):
 
 class SoundsPage(Adw.PreferencesPage):
     EVENTS = [("keys", "Keystrokes"), ("notify", "Notification"), ("notify-urgent", "Urgent"), ("lock", "Lock"), ("unlock", "Unlock"),
-              ("shutter", "Shutter"), ("plug", "Plug"), ("unplug", "Unplug"), ("batt-low", "Battery low")]
+              ("shutter", "Shutter"), ("plug", "Plug"), ("unplug", "Unplug"), ("batt-low", "Battery low"),
+              ("click", "Click"), ("toggle-on", "Toggle on"), ("toggle-off", "Toggle off"), ("open", "Open"), ("close", "Close")]
 
     def __init__(self, toast, app):
         super().__init__(title="Sound theme", icon_name="emblem-music-symbolic")
@@ -303,7 +327,7 @@ class SoundsPage(Adw.PreferencesPage):
         cfg = self.read_cfg()
 
         g = Adw.PreferencesGroup(title="Theme", description="One pack drives keystrokes, notifications and system events. "
-                                                             "Packs live in ~/.config/keysound/packs/NAME/ as 18 WAV files.")
+                                                             "Packs live in ~/.config/keysound/packs/NAME/ as 23 WAV files.")
         self.packs = sorted(d for d in os.listdir(os.path.join(KS, "packs")) if os.path.isdir(os.path.join(KS, "packs", d)))
         self.pack = Adw.ComboRow(title="Active pack", subtitle="Switches live, no restart needed")
         self.pack.set_model(Gtk.StringList.new([self.pretty(p) for p in self.packs]))
@@ -328,7 +352,7 @@ class SoundsPage(Adw.PreferencesPage):
         g.add(scale_row("Volume", "Mixer level for keystrokes", float(cfg.get("volume", 0.45)) * 100, lambda v: run([KS_SH, "volume", f"{v / 100:.2f}"])))
         self.add(g)
 
-        g = Adw.PreferencesGroup(title="System sounds", description="Notifications, lock/unlock, screenshots, charger, low battery. Silenced by do-not-disturb (except lock/unlock).")
+        g = Adw.PreferencesGroup(title="System sounds", description="Notifications, lock/unlock, screenshots, charger, low battery, and the clicks/toggles in this app, the bar and the control center. Silenced by do-not-disturb (except lock/unlock).")
         self.system = Adw.SwitchRow(title="System sounds")
         self.system.set_active(cfg.get("system", "true") != "false")
         self.system.connect("notify::active", lambda r, _: (run([KS_SH, "system", "on" if r.get_active() else "off"]), self.toast("System sounds " + ("on" if r.get_active() else "off"))))
@@ -664,7 +688,7 @@ class DesktopPage(Adw.PreferencesPage):
             btn.connect("clicked", lambda _b, p=path: self.apply_wallpaper(p))
             if os.path.realpath(path) == os.path.realpath(self.wall):
                 box.add_css_class("current")
-            self.tiles[path] = btn; self.flow.append(btn)
+            self.tiles[path] = btn; self.flow.append(btn); btn.connect("clicked", lambda *_: snd("click"))
 
     def pick_wallpaper(self):
         dlg = Gtk.FileDialog(title="Choose wallpaper")
@@ -845,7 +869,7 @@ class WifiPage(Adw.PreferencesPage):
                 if ssid in known:
                     f = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER, tooltip_text="Forget network", css_classes=["flat"])
                     f.connect("clicked", lambda _b, ss=ssid: self.wifi_cmd(["nmcli", "con", "delete", "id", ss], f"Forgot {ss}")); row.add_suffix(f)
-            self.wifi_group.add(row); self.wifi_rows.append(row)
+            self.wifi_group.add(row); self.wifi_rows.append(row); wire_sounds(row)
 
     def connect_wifi(self, ssid, sec, known):
         if known or not sec:
@@ -907,7 +931,7 @@ class BluetoothPage(Adw.PreferencesPage):
             row.add_suffix(b)
             f = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER, tooltip_text="Forget device", css_classes=["flat"])
             f.connect("clicked", lambda _b, m=mac, n=name: self.bt_cmd(["bluetoothctl", "remove", m], f"Forgot {n}")); row.add_suffix(f)
-            self.bt_group.add(row); self.bt_rows.append(row)
+            self.bt_group.add(row); self.bt_rows.append(row); wire_sounds(row)
 
     def scan_bt(self):
         self.bt_scan_btn.set_sensitive(False); self.bt_group.set_description("scanning for 8 s…")
@@ -999,6 +1023,8 @@ class App(Adw.Application):
 
     # ── show / hide ──
     def show_win(self):
+        if not self.win.get_visible():
+            snd("open")
         self.win.present()
         cur = self.stack.get_visible_child_name()
         page = self.pages.get(cur)
@@ -1006,6 +1032,8 @@ class App(Adw.Application):
             page.refresh()
 
     def hide_win(self):
+        if self.win.get_visible():
+            snd("close")
         self.win.set_visible(False)
         if "dashboard" in self.pages:
             self.pages["dashboard"].pause()
@@ -1042,6 +1070,7 @@ class App(Adw.Application):
             pages[name] = cls(toast, self)
             pages[name].set_hexpand(True); pages[name].set_vexpand(True)
             holders[name].append(pages[name])
+            wire_sounds(pages[name])
             return True
 
         sidebar = Gtk.ListBox(); sidebar.add_css_class("navigation-sidebar"); sidebar.add_css_class("sigil-sidebar")
@@ -1056,6 +1085,8 @@ class App(Adw.Application):
 
         def on_row(_lb, row):
             if row and row.page in holders:
+                if win.get_visible():
+                    snd("click")
                 fresh = ensure(row.page)
                 stack.set_visible_child_name(row.page); title_lbl.set_label(row.page.upper())
                 page = pages[row.page]

@@ -64,62 +64,62 @@
           "label": "󰖩",
           "type": "toggle",
           "active": true,
-          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && nmcli radio wifi on || nmcli radio wifi off'",
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh play toggle-on || ~/.config/keysound/keysound.sh play toggle-off; [[ $SWAYNC_TOGGLE_STATE == true ]] && nmcli radio wifi on || nmcli radio wifi off'",
           "update-command": "sh -c '[[ $(nmcli radio wifi) == enabled ]] && echo true || echo false'"
         },
         {
           "label": "󰂯",
           "type": "toggle",
           "active": true,
-          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && bluetoothctl power on || bluetoothctl power off'",
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh play toggle-on || ~/.config/keysound/keysound.sh play toggle-off; [[ $SWAYNC_TOGGLE_STATE == true ]] && bluetoothctl power on || bluetoothctl power off'",
           "update-command": "sh -c 'bluetoothctl show | grep -q Powered:.yes && echo true || echo false'"
         },
         {
           "label": "󰍭",
           "type": "toggle",
           "active": false,
-          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1 || wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0'",
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh play toggle-on || ~/.config/keysound/keysound.sh play toggle-off; [[ $SWAYNC_TOGGLE_STATE == true ]] && wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1 || wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0'",
           "update-command": "sh -c 'wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED && echo true || echo false'"
         },
         {
           "label": "󰅶",
           "type": "toggle",
           "active": false,
-          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/swaync/keepawake.sh on || ~/.config/swaync/keepawake.sh off'",
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh play toggle-on || ~/.config/keysound/keysound.sh play toggle-off; [[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/swaync/keepawake.sh on || ~/.config/swaync/keepawake.sh off'",
           "update-command": "sh -c '~/.config/swaync/keepawake.sh state'"
         },
         {
           "label": "󰖔",
           "type": "toggle",
           "active": false,
-          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/swaync/nightlight.sh on || ~/.config/swaync/nightlight.sh off'",
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh play toggle-on || ~/.config/keysound/keysound.sh play toggle-off; [[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/swaync/nightlight.sh on || ~/.config/swaync/nightlight.sh off'",
           "update-command": "sh -c '~/.config/swaync/nightlight.sh state'"
         },
         {
           "label": "󱐋",
           "type": "toggle",
           "active": false,
-          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && powerprofilesctl set performance || powerprofilesctl set power-saver; pkill -RTMIN+10 waybar'",
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh play toggle-on || ~/.config/keysound/keysound.sh play toggle-off; [[ $SWAYNC_TOGGLE_STATE == true ]] && powerprofilesctl set performance || powerprofilesctl set power-saver; pkill -RTMIN+10 waybar'",
           "update-command": "sh -c '[[ $(powerprofilesctl get) == performance ]] && echo true || echo false'"
         },
         {
           "label": "󰌌",
           "type": "toggle",
           "active": false,
-          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh start || ~/.config/keysound/keysound.sh stop'",
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh play toggle-on || ~/.config/keysound/keysound.sh play toggle-off; [[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh start || ~/.config/keysound/keysound.sh stop'",
           "update-command": "sh -c '~/.config/keysound/keysound.sh state'"
         },
         {
           "label": "󰅇",
-          "command": "sh -c 'swaync-client -cp; ~/.config/rofi/clip.sh'"
+          "command": "sh -c '~/.config/keysound/keysound.sh play click; swaync-client -cp; ~/.config/rofi/clip.sh'"
         },
         {
           "label": "󰌾",
-          "command": "loginctl lock-session"
+          "command": "sh -c '~/.config/keysound/keysound.sh play click; loginctl lock-session'"
         },
         {
           "label": "⏻",
-          "command": "wlogout --protocol layer-shell"
+          "command": "sh -c '~/.config/keysound/keysound.sh play click; wlogout --protocol layer-shell'"
         }
       ]
     }

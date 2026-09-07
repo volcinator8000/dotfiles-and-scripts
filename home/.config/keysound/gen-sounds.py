@@ -109,6 +109,12 @@ def animalese():
     write("plug.wav", blip(80, 440 * 1.4, A) + gap(30) + blip(130, 659 * 1.4, E, decay=0.05), 0.42)
     write("unplug.wav", blip(80, 659 * 1.4, E) + gap(30) + blip(130, 440 * 1.4, A, decay=0.05), 0.42)
     write("batt-low.wav", blip(180, 330 * 1.4, O, decay=0.08) + gap(120) + blip(240, 294 * 1.4, U, decay=0.1), 0.45)
+    # ui: tiny blips for menus, bar clicks, toggles
+    write("click.wav", blip(40, 784 * 1.4, E, attack_ms=1, decay=0.012), 0.3)
+    write("toggle-on.wav", blip(45, 587 * 1.4, A, attack_ms=1, decay=0.015) + gap(15) + blip(70, 880 * 1.4, E, decay=0.02), 0.32)
+    write("toggle-off.wav", blip(45, 880 * 1.4, E, attack_ms=1, decay=0.015) + gap(15) + blip(70, 587 * 1.4, A, decay=0.02), 0.32)
+    write("open.wav", blip(50, 494 * 1.4, O, attack_ms=2, decay=0.02) + gap(20) + blip(90, 659 * 1.4, A, decay=0.03), 0.3)
+    write("close.wav", blip(50, 659 * 1.4, A, attack_ms=2, decay=0.02) + gap(20) + blip(90, 494 * 1.4, O, decay=0.03), 0.3)
 
 if PACK == "animalese":
     animalese()
@@ -156,5 +162,11 @@ else:
     write("plug.wav", seq(tone(90, 440, tau=0.04), tone(180, 660, tau=0.08)), 0.45)
     write("unplug.wav", seq(tone(90, 660, tau=0.04), tone(180, 440, tau=0.08)), 0.45)
     write("batt-low.wav", seq(tone(260, 330, tau=0.12, bits=5, cut=1200), tone(360, 262, tau=0.16, bits=5, cut=1200)), 0.5)
+    # ui: tiny glassy blips for menus, bar clicks, toggles
+    write("click.wav", tone(45, 1760, tau=0.012, bits=8, cut=5000), 0.32)
+    write("toggle-on.wav", seq(tone(40, 1100, tau=0.015), tone(70, 1650, tau=0.02)), 0.34)
+    write("toggle-off.wav", seq(tone(40, 1650, tau=0.015), tone(70, 1100, tau=0.02)), 0.34)
+    write("open.wav", mix(tone(120, 600, 1400, tau=0.05, bits=6, cut=3500), scale(tone(120, 1200, 2800, tau=0.04), 0.35)), 0.34)
+    write("close.wav", mix(tone(120, 1400, 600, tau=0.05, bits=6, cut=3500), scale(tone(120, 2800, 1200, tau=0.04), 0.35)), 0.34)
 
 print(PACK, "->", sorted(os.listdir(OUT)))

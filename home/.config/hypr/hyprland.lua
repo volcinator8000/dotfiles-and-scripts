@@ -362,9 +362,9 @@ hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd("loginctl lock-session"), { lock
 local mainMod = "SUPER" -- Sets "Windows" key as main modifier
 
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("loginctl lock-session"))
-hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("swaync-client -t -sw"))
+hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play open; swaync-client -t -sw"))
 hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("~/.config/rofi/clip.sh")) -- clipboard history
-hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("rofi -show emoji")) -- emoji picker (rofi-emoji)
+hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play open; rofi -show emoji")) -- emoji picker (rofi-emoji)
 hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("python3 ~/.config/sigil-settings/sigil-settings.py --toggle")) -- settings applet (resident, toggles)
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
@@ -376,7 +376,7 @@ hl.bind(mainMod .. " + B", hl.dsp.exec_cmd(browser))
 hl.bind(mainMod .. " + C", hl.dsp.exec_cmd(ide))
 hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
-hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(menu))
+hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play open; " .. menu))
 hl.bind(mainMod .. " + SHIFT + P", hl.dsp.window.pseudo()) -- pseudo-tile (moved off plain SUPER+P)
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit")) -- dwindle only
 

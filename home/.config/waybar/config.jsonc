@@ -14,20 +14,20 @@
     "custom/os_button": {
         "format": "",
         "tooltip": false,
-        "on-click": "rofi -show drun",
-        "on-click-right": "python3 ~/.config/sigil-settings/sigil-settings.py"
+        "on-click": "~/.config/keysound/keysound.sh play click; rofi -show drun",
+        "on-click-right": "~/.config/keysound/keysound.sh play click; python3 ~/.config/sigil-settings/sigil-settings.py"
     },
     "cpu": {
         "interval": 5,
         "format": "󰻠 {usage}%",
         "tooltip-format": "load {load}",
-        "on-click": "kitty -e btop"
+        "on-click": "~/.config/keysound/keysound.sh play click; kitty -e btop"
     },
     "memory": {
         "interval": 10,
         "format": "󰍛 {percentage}%",
         "tooltip-format": "{used:0.1f} / {total:0.1f} GiB",
-        "on-click": "kitty -e btop"
+        "on-click": "~/.config/keysound/keysound.sh play click; kitty -e btop"
     },
     "custom/gpu": {
         "exec": "~/.config/waybar/scripts/gpu.sh",
@@ -35,14 +35,14 @@
         "format": "{}",
         "interval": 3,
         "tooltip": true,
-        "on-click": "kitty -e btop"
+        "on-click": "~/.config/keysound/keysound.sh play click; kitty -e btop"
     },
     "disk": {
         "interval": 60,
         "format": "󰋊 {percentage_used}%",
         "path": "/",
         "tooltip-format": "{used} used · {free} free on {path}",
-        "on-click": "kitty -e btop"
+        "on-click": "~/.config/keysound/keysound.sh play click; kitty -e btop"
     },
     "temperature": {
         "interval": 5,
@@ -50,7 +50,7 @@
         "format": "{icon} {temperatureC}°",
         "format-icons": ["", "", ""],
         "tooltip": false,
-        "on-click": "kitty -e btop"
+        "on-click": "~/.config/keysound/keysound.sh play click; kitty -e btop"
     },
 
     // ── center: workspaces · clock · window title ──────────────
@@ -59,7 +59,7 @@
         "format-icons": { "default": "○", "active": "◉", "urgent": "◈", "special": "◇" },
         "all-outputs": true,
         "disable-scroll": true,
-        "on-click": "activate",
+        "on-click": "~/.config/keysound/keysound.sh play click; activate",
         "persistent-workspaces": { "*": 3 }
     },
     "clock": {
@@ -79,7 +79,7 @@
                 "today":    "<span color='#3ae0ff'><b><u>{}</u></b></span>"
             }
         },
-        "actions": { "on-click-right": "mode", "on-scroll-up": "shift_up", "on-scroll-down": "shift_down" }
+        "actions": { "on-click-right": "~/.config/keysound/keysound.sh play click; mode", "on-scroll-up": "shift_up", "on-scroll-down": "shift_down" }
     },
     "mpris": {
         "player": "spotify",
@@ -92,7 +92,7 @@
         "min-length": 16,
         "interval": 1,
         "tooltip-format": "{artist} — {title}\n{album}",
-        "on-click": "playerctl -p spotify play-pause",
+        "on-click": "~/.config/keysound/keysound.sh play click; playerctl -p spotify play-pause",
         "on-scroll-up": "playerctl -p spotify next",
         "on-scroll-down": "playerctl -p spotify previous"
     },
@@ -104,7 +104,7 @@
         "max-length": 52,
         "min-length": 52,
         "tooltip": true,
-        "on-click": "playerctl -p spotify play-pause"
+        "on-click": "~/.config/keysound/keysound.sh play click; playerctl -p spotify play-pause"
     },
     "hyprland/window": {
         "format": "{title}",
@@ -122,8 +122,8 @@
         "format": "{}",
         "interval": 14400,
         "signal": 9,
-        "on-click": "~/.config/waybar/scripts/update-now.sh",
-        "on-click-right": "pkill -RTMIN+9 waybar",
+        "on-click": "~/.config/keysound/keysound.sh play click; ~/.config/waybar/scripts/update-now.sh",
+        "on-click-right": "~/.config/keysound/keysound.sh play click; pkill -RTMIN+9 waybar",
         "tooltip": true
     },
     "tray": {
@@ -140,7 +140,7 @@
         "tooltip-format-wifi": "{essid}\n{ipaddr} · ↓{bandwidthDownBits} ↑{bandwidthUpBits}",
         "tooltip-format-ethernet": "{ifname} · {ipaddr}",
         "tooltip-format-disconnected": "disconnected",
-        "on-click": "nm-connection-editor"
+        "on-click": "~/.config/keysound/keysound.sh play click; nm-connection-editor"
     },
     "power-profiles-daemon": {
         "format": "{icon}",
@@ -153,7 +153,7 @@
         "interval": 10,
         "format": "{}",
         "tooltip": true,
-        "on-click": "sh -c 'python3 ~/.config/sigil-settings/sigil-settings.py --page power'"
+        "on-click": "~/.config/keysound/keysound.sh play click; sh -c 'python3 ~/.config/sigil-settings/sigil-settings.py --page power'"
     },
     "custom/keepawake": {
         "exec": "~/.config/waybar/scripts/keepawake.sh",
@@ -162,13 +162,13 @@
         "signal": 8,
         "format": "{}",
         "tooltip-format": "keep awake: idle lock/sleep inhibited\nclick to release",
-        "on-click": "~/.config/swaync/keepawake.sh off"
+        "on-click": "~/.config/keysound/keysound.sh play click; ~/.config/swaync/keepawake.sh off"
     },
     "custom/control": {
         "format": "󰕮",
         "tooltip-format": "control center",
-        "on-click": "swaync-client -t -sw",
-        "on-click-right": "swaync-client -d -sw"
+        "on-click": "~/.config/keysound/keysound.sh play open; swaync-client -t -sw",
+        "on-click-right": "~/.config/keysound/keysound.sh play click; swaync-client -d -sw"
     },
     "custom/notification": {
         "tooltip": false,
@@ -186,13 +186,13 @@
         "return-type": "json",
         "exec-if": "which swaync-client",
         "exec": "swaync-client -swb",
-        "on-click": "swaync-client -t -sw",
-        "on-click-right": "swaync-client -d -sw",
+        "on-click": "~/.config/keysound/keysound.sh play open; swaync-client -t -sw",
+        "on-click-right": "~/.config/keysound/keysound.sh play click; swaync-client -d -sw",
         "escape": true
     },
     "custom/power": {
         "format": "⏻",
         "tooltip": false,
-        "on-click": "wlogout --protocol layer-shell"
+        "on-click": "~/.config/keysound/keysound.sh play click; wlogout --protocol layer-shell"
     }
 }
