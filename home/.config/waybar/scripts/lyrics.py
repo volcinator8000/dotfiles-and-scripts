@@ -4,7 +4,7 @@ import json, os, re, subprocess, sys, hashlib, urllib.request, urllib.parse, htm
 
 CACHE = os.path.expanduser("~/.cache/waybar-lyrics")
 os.makedirs(CACHE, exist_ok=True)
-MAXLEN = 28
+MAXLEN = 52
 PLAYER = "spotify"
 
 def out(text="", tooltip="", cls="none"):
