@@ -71,6 +71,7 @@ hl.env("XCURSOR_THEME", "catppuccin-mocha-dark-cursors")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_THEME", "catppuccin-mocha-dark-cursors")
 hl.env("HYPRCURSOR_SIZE", "24")
+hl.env("GDK_DISABLE", "vulkan") -- GTK4 Vulkan probe wakes the suspended dGPU (~2 s) on every app launch; GL renderer instead
 
 -- Qt theming: qt6ct/qt5ct with the Kvantum style set inside their configs
 hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")

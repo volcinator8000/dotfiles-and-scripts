@@ -8,12 +8,14 @@ About (keys). Everything goes through the same scripts the bar and control
 center use. `--page NAME` opens on a page.
 """
 import os, re, sys, json, time, subprocess
+os.environ.setdefault("GDK_DISABLE", "vulkan")  # GTK's Vulkan probe wakes the suspended dGPU (+2 s startup); GL is plenty
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk, GdkPixbuf
 
+T_START = time.time()
 HOME = os.path.expanduser("~")
 CFG = os.path.join(HOME, ".config")
 KS = os.path.join(CFG, "keysound")
@@ -188,6 +190,8 @@ class DashboardPage(Adw.PreferencesPage):
 
         self.prev = None
         self.tick_id = 0
+        app.profile_cache = app.profile_cache or run(["powerprofilesctl", "get"])
+        app.night_cache = run([NIGHTLIGHT, "state"]) == "true"
         self.tick()
 
     @staticmethod
@@ -680,18 +684,28 @@ class AboutPage(Adw.PreferencesPage):
 
     def __init__(self, toast, app):
         super().__init__(title="About", icon_name="help-about-symbolic")
-        g = Adw.PreferencesGroup(title="Keys")
-        for k, d in self.KEYS:
-            row = Adw.ActionRow(title=d)
-            cap = Gtk.Label(label=k); cap.add_css_class("key-cap"); cap.set_valign(Gtk.Align.CENTER)
-            row.add_suffix(cap); g.add(row)
-        self.add(g)
-        g = Adw.PreferencesGroup(title="Sigil")
-        for t, s in (("Palette", "cherenkov blue · plasmatic purple · snooze pink · communication red · wavelength green · infrared · phosphorus amber"),
-                     ("Stack", f"hyprland {run(['hyprctl', 'version']).split()[1] if run(['hyprctl', 'version']) else ''} · waybar · swaync · hyprlock · kitty · rofi · zsh + starship"),
-                     ("Repo", "github.com/volcinator8000/dotfiles-and-scripts")):
-            g.add(Adw.ActionRow(title=t, subtitle=s))
-        self.add(g)
+        dbg = os.environ.get("SIGIL_ABOUT", "keys,sigil").split(",")
+        if "keys" in dbg:
+            g = Adw.PreferencesGroup(title="Keys")
+            for k, d in self.KEYS:
+                row = Adw.ActionRow(title=d)
+                mode = os.environ.get("SIGIL_CAP", "css")
+                if mode == "button":
+                    cap = Gtk.Button(label=k); cap.add_css_class("flat"); cap.add_css_class("key-cap"); cap.set_can_focus(False)
+                else:
+                    cap = Gtk.Label(label=k)
+                    if mode == "css":
+                        cap.add_css_class("key-cap")
+                cap.set_valign(Gtk.Align.CENTER); row.add_suffix(cap); g.add(row)
+            self.add(g)
+        if "sigil" in dbg:
+            ver = run(["hyprctl", "version"]).split()
+            g = Adw.PreferencesGroup(title="Sigil")
+            for t, s in (("Palette", "cherenkov blue · plasmatic purple · snooze pink · communication red · wavelength green · infrared · phosphorus amber"),
+                         ("Stack", f"hyprland {ver[1] if len(ver) > 1 else ''} · waybar · swaync · hyprlock · kitty · rofi · zsh + starship"),
+                         ("Repo", "github.com/volcinator8000/dotfiles-and-scripts")):
+                g.add(Adw.ActionRow(title=t, subtitle=s))
+            self.add(g)
 
 
 # ── application ───────────────────────────────────────────────────────────────
@@ -709,7 +723,12 @@ class App(Adw.Application):
         self.profile_cache, self.night_cache = "", False
 
     def do_activate(self):
+        t0 = time.time()
         win = self.props.active_window or self.build()
+        if os.environ.get("SIGIL_TIMING"):
+            print(f"build {time.time() - T_START:.2f}s (activate→built {time.time() - t0:.2f}s)", file=sys.stderr)
+            win.connect("map", lambda *_: print(f"map {time.time() - T_START:.2f}s", file=sys.stderr))
+            win.connect("realize", lambda *_: print(f"realize {time.time() - T_START:.2f}s", file=sys.stderr))
         win.present()
 
     def build(self):
@@ -723,17 +742,21 @@ class App(Adw.Application):
         toast = lambda msg: toasts.add_toast(Adw.Toast(title=msg, timeout=2))
 
         stack = Adw.ViewStack()
-        # build Power before Dashboard needs its caches: construct all, then add in order
-        only = os.environ.get("SIGIL_ONLY", "").split(",") if os.environ.get("SIGIL_ONLY") else None  # debug: build a subset
-        pages = {}
+        only = os.environ.get("SIGIL_ONLY", "").split(",") if os.environ.get("SIGIL_ONLY") else None  # debug: subset
+        pages, holders = {}, {}
         for name, title, icon, cls in PAGES:
-            if cls is not DashboardPage and (not only or name in only):
-                pages[name] = cls(toast, self)
-        if not only or "dashboard" in only:
-            pages["dashboard"] = DashboardPage(toast, self)
-        for name, title, icon, cls in PAGES:
-            if name in pages:
-                stack.add_titled_with_icon(pages[name], name, title, icon)
+            if only and name not in only:
+                continue
+            holder = Gtk.Box(); holders[name] = holder  # placeholder, filled on first visit
+            stack.add_titled_with_icon(holder, name, title, icon)
+
+        def ensure(name):
+            if name in pages or name not in holders:
+                return
+            cls = next(c for n, _, _, c in PAGES if n == name)
+            pages[name] = cls(toast, self)
+            pages[name].set_hexpand(True); pages[name].set_vexpand(True)
+            holders[name].append(pages[name])
 
         sidebar = Gtk.ListBox(); sidebar.add_css_class("navigation-sidebar"); sidebar.add_css_class("sigil-sidebar")
         sidebar.set_size_request(190, -1)
@@ -744,8 +767,8 @@ class App(Adw.Application):
         title_lbl = Gtk.Label(label="DASHBOARD"); title_lbl.add_css_class("sigil-page-title")
 
         def on_row(_lb, row):
-            if row:
-                stack.set_visible_child_name(row.page); title_lbl.set_label(row.page.upper())
+            if row and row.page in holders:
+                ensure(row.page); stack.set_visible_child_name(row.page); title_lbl.set_label(row.page.upper())
         sidebar.connect("row-selected", on_row)
         brand = Gtk.Label(label="SIGIL // SETTINGS", xalign=0); brand.add_css_class("sigil-brand")
         brand.set_margin_top(16); brand.set_margin_bottom(8); brand.set_margin_start(20)
@@ -760,14 +783,13 @@ class App(Adw.Application):
         toasts.set_child(split); win.set_content(toasts)
 
         want = sys.argv[sys.argv.index("--page") + 1] if "--page" in sys.argv else "dashboard"
-        idx = next((i for i, p in enumerate(PAGES) if p[0] == want and p[0] in pages), next(i for i, p in enumerate(PAGES) if p[0] in pages))
+        idx = next((i for i, p in enumerate(PAGES) if p[0] == want and p[0] in holders), next(i for i, p in enumerate(PAGES) if p[0] in holders))
         sidebar.select_row(sidebar.get_row_at_index(idx))
 
         ctl = Gtk.ShortcutController()
         ctl.add_shortcut(Gtk.Shortcut.new(Gtk.ShortcutTrigger.parse_string("Escape"), Gtk.CallbackAction.new(lambda *_: (win.close(), True)[1])))
         win.add_controller(ctl)
-        if "dashboard" in pages:
-            win.connect("close-request", lambda *_: (GLib.source_remove(pages["dashboard"].tick_id) if pages["dashboard"].tick_id else None, False)[1])
+        win.connect("close-request", lambda *_: (GLib.source_remove(pages["dashboard"].tick_id) if "dashboard" in pages and pages["dashboard"].tick_id else None, False)[1])
         return win
 
 
