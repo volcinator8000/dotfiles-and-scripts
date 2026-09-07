@@ -511,7 +511,7 @@ hl.window_rule({
     match = { class = "^io\\.sigil\\.Settings$" },
     float = true,
     center = true,
-    size = "800 620",
+    size = "980 680",
 })
 
 -- Float common utility popups
@@ -527,3 +527,6 @@ hl.window_rule({
 hl.layer_rule({ name = "blur-waybar", match = { namespace = "^waybar$" }, blur = true, ignore_alpha = 0.3 })
 hl.layer_rule({ name = "blur-rofi",   match = { namespace = "^rofi$" },   blur = true, ignore_alpha = 0.3 })
 hl.layer_rule({ name = "blur-swaync", match = { namespace = "^swaync-.*$" }, blur = true, ignore_alpha = 0.3 })
+
+-- machine-local overrides written by the settings app; errors there must never kill the session
+pcall(dofile, os.getenv("HOME") .. "/.config/hypr/local.lua")

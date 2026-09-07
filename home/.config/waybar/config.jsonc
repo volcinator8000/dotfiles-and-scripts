@@ -8,7 +8,7 @@
 
     "modules-left":   ["custom/os_button", "cpu", "memory", "custom/gpu", "disk", "temperature", "hyprland/window"],
     "modules-center": ["hyprland/workspaces", "clock", "mpris", "custom/lyrics"],
-    "modules-right":  ["custom/updates", "tray", "network", "power-profiles-daemon", "battery", "custom/keepawake", "custom/control", "custom/notification", "custom/power"],
+    "modules-right":  ["custom/updates", "tray", "network", "power-profiles-daemon", "custom/battery", "custom/keepawake", "custom/control", "custom/notification", "custom/power"],
 
     // ── left: launcher + system stats ──────────────────────────
     "custom/os_button": {
@@ -147,15 +147,13 @@
         "tooltip-format": "profile: {profile}\nepp: {epp}",
         "format-icons": { "default": "󰗑", "performance": "󱐋", "balanced": "󰗑", "power-saver": "󰌪" }
     },
-    "battery": {
-        "interval": 30,
-        "states": { "warning": 30, "critical": 15 },
-        "format": "{icon} {capacity}%",
-        "format-charging": "󰂄 {capacity}%",
-        "format-plugged": "󰚥 {capacity}%",
-        "format-full": "󰁹 {capacity}%",
-        "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
-        "tooltip-format": "{timeTo}\n{power:.1f} W · health {health}%"
+    "custom/battery": {
+        "exec": "~/.config/waybar/scripts/battery.sh",
+        "return-type": "json",
+        "interval": 10,
+        "format": "{}",
+        "tooltip": true,
+        "on-click": "sh -c 'python3 ~/.config/sigil-settings/sigil-settings.py --page power'"
     },
     "custom/keepawake": {
         "exec": "~/.config/waybar/scripts/keepawake.sh",

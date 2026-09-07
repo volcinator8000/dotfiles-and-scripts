@@ -119,10 +119,10 @@ tooltip label { color: @text; }
 #network.linked       { color: @amber; }
 #network.disconnected { color: @red; }
 
-#battery              { color: @green; }
-#battery.charging, #battery.plugged { color: @blue; }
-#battery.warning:not(.charging)  { color: @amber; }
-#battery.critical:not(.charging) { color: @red; animation: blink 0.5s linear infinite alternate; }
+#custom-battery       { color: @green; }
+#custom-battery.charging, #custom-battery.plugged { color: @blue; }
+#custom-battery.warning  { color: @amber; }
+#custom-battery.critical { color: @red; animation: blink 0.5s linear infinite alternate; }
 
 #custom-keepawake    { color: @amber; font-size: 15px; text-shadow: 0 0 8px alpha(@amber, 0.7); }
 #custom-control      { color: @blue; font-size: 15px; }

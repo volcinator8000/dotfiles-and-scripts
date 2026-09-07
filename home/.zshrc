@@ -36,3 +36,5 @@ eval "$(starship init zsh)"
 
 # dotfiles: ~/dotfiles-and-scripts (configs are symlinks into it), e.g. `dots status`, `dots add -A`, `dots commit`, `dots push`
 alias dots="git -C $HOME/dotfiles-and-scripts"
+
+export PATH=$PATH:/home/kali/.spicetify

@@ -24,7 +24,10 @@ Flags: `--skip-packages` `--skip-system` `--apps` (Discord/Slack/Spotify/Zen)
 | `home/.config/waybar` | bar + scripts: update checker, updater window, GPU/power-aware widget, lyrics, keep-awake eye |
 | `home/.config/swaync` | notification center / control center with toggles (`keepawake.sh`, `nightlight.sh`) |
 | `home/.config/keysound` | typewriter key sounds: evdev daemon, pure-python sound synthesis, packs (cybersigil, animalese) |
-| `home/.config/sigil-settings` | GTK4/libadwaita settings app (SUPER+I): sounds, power, idle timers, night light, wallpaper, services |
+| `home/.config/sigil-settings` | GTK4/libadwaita settings app (SUPER+I): dashboard, sounds, power, night light, idle timers, wallpaper gallery, services, input (keyboard/touchpad via `hypr/local.lua`) |
+| `home/.config/hypr/scripts` | lock-screen now-playing (Spotify art + track, cached in `~/.cache/nowplaying`) |
+| `home/.config/spicetify/Themes/Cybersigil` | Spotify theme; apply with `sudo chmod a+wr -R /opt/spotify && spicetify backup apply` (redo after Spotify updates) |
+| `home/.config/systemd/user` | `dots-sync.timer`: weekly auto commit + push of this repo (`dots-sync` by hand) |
 | `home/.config/{kitty,rofi,wlogout,macchina,qt6ct,fontconfig}` | themed apps, fonts fallback chain (CJK/emoji) |
 | `home/.zshrc`, `starship.toml` | zsh + oh-my-zsh + starship two-line prompt + macchina fetch |
 | `scripts/bin/` | `dirprep` (Epitech C project scaffold), `mirmon` (mirror HDMI), `pt` (add/commit/push) → linked into `~/.local/bin` |

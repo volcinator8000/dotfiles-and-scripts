@@ -1,0 +1,13 @@
+/* cybersigilism: no pills, hairline borders, glow on the accent */
+:root { --border: #1b1b24; --accent: #3ae0ff; }
+button, .main-playButton-PlayButton, .main-trackList-trackListRow, .main-card-card,
+.main-entityHeader-shadow, .x-searchInput-searchInputSearchIcon, input, .main-nowPlayingBar-container,
+.main-yourLibraryX-navItem, .main-topBar-container, .main-home-homeHeader, .main-card-imageWrapper, img {
+  border-radius: 0 !important;
+}
+.main-card-card, .main-trackList-trackListRow:hover, .main-yourLibraryX-listItem:hover { outline: 1px solid var(--border); }
+.main-nowPlayingBar-container { border-top: 1px solid var(--border) !important; }
+.Root__nav-bar, .main-yourLibraryX-libraryContainer { border-right: 1px solid var(--border); }
+.main-playButton-PlayButton, .main-playButton-button { box-shadow: 0 0 12px rgba(58,224,255,.45) !important; }
+.progress-bar__fg, .progress-bar__slider, .x-progressBar-fillColor { background: var(--accent) !important; box-shadow: 0 0 8px rgba(58,224,255,.6); }
+.main-trackList-playingIcon, .main-trackList-trackListRow.main-trackList-selected, a:hover { color: var(--accent) !important; }

@@ -101,6 +101,8 @@ LINK_FILES=(
     .config/gtk-3.0/gtk.css .config/gtk-4.0/gtk.css
     .local/share/color-schemes/Cybersigil.colors
     .local/share/applications/sigil-settings.desktop
+    .config/systemd/user/dots-sync.service .config/systemd/user/dots-sync.timer
+    .config/spicetify/Themes/Cybersigil
     Pictures/Wallpapers/cybersigil.png
 )
 BACKUP="$HOME/.config-backup-$(date +%Y%m%d-%H%M%S)"
@@ -132,7 +134,7 @@ for s in scripts/bin/*; do
         run ln -sf "$REPO_DIR/$s" "$HOME/.local/bin/$n"; ok "bin/$n"
     fi
 done
-run chmod +x scripts/setup/*.sh home/.config/waybar/scripts/* home/.config/swaync/*.sh \
+run chmod +x scripts/setup/*.sh home/.config/waybar/scripts/* home/.config/swaync/*.sh home/.config/hypr/scripts/*.sh \
     home/.config/keysound/keysound.sh home/.config/sigil-settings/sigil-settings.py home/.config/rofi/*.sh 2>/dev/null || true
 
 # ── 3. absolute paths that tools refuse to expand ────────────────────────────
@@ -161,7 +163,15 @@ ZC="$HOME/.oh-my-zsh/custom/plugins"
 [[ -d "$ZC/zsh-autosuggestions" ]]     || run git clone -q https://github.com/zsh-users/zsh-autosuggestions "$ZC/zsh-autosuggestions" || true
 [[ -d "$ZC/zsh-syntax-highlighting" ]] || run git clone -q https://github.com/zsh-users/zsh-syntax-highlighting "$ZC/zsh-syntax-highlighting" || true
 [[ -d "$ZC/zsh-history-substring-search" ]] || run git clone -q https://github.com/zsh-users/zsh-history-substring-search "$ZC/zsh-history-substring-search" || true
-run mkdir -p "$HOME/Pictures/Screenshots"
+run mkdir -p "$HOME/Pictures/Screenshots" "$HOME/.cache/nowplaying"
+say "weekly dotfiles sync timer"
+run systemctl --user daemon-reload 2>/dev/null || true
+run systemctl --user enable --now dots-sync.timer 2>/dev/null || warn "could not enable dots-sync.timer (no user session bus?)"
+if [[ ! -x "$HOME/.spicetify/spicetify" ]] && command -v spotify >/dev/null; then
+    say "spicetify (user install, themes Spotify); apply needs: sudo chmod a+wr -R /opt/spotify && spicetify backup apply"
+    run sh -c "$(curl -fsSL https://raw.githubusercontent.com/spicetify/cli/main/install.sh)" </dev/null >/dev/null 2>&1 || warn "spicetify install failed"
+    [[ -x "$HOME/.spicetify/spicetify" ]] && run "$HOME/.spicetify/spicetify" config current_theme Cybersigil color_scheme cybersigil inject_css 1 replace_colors 1 >/dev/null 2>&1 || true
+fi
 
 # ── 5. system side (needs sudo) ──────────────────────────────────────────────
 if (( ! SKIP_SYSTEM )); then

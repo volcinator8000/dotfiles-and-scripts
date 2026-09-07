@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""SIGIL // SETTINGS — a small control panel for this Hyprland rice.
+"""SIGIL // SETTINGS — control panel for the cybersigilism Hyprland rice.
 
-Pages: Sounds (typewriter key sounds, packs), Power (profile, brightness,
-idle timers), Desktop (wallpaper, updates, service restarts).
-Everything goes through the same scripts the bar and control center use.
+Pages: Dashboard (live stats), Sounds (typewriter key sounds, packs), Power
+(profile, brightness, night light, idle timers), Desktop (wallpaper gallery,
+updates, services), Input (keyboard / touchpad via ~/.config/hypr/local.lua),
+About (keys). Everything goes through the same scripts the bar and control
+center use. `--page NAME` opens on a page.
 """
-import os, re, subprocess, json
+import os, re, sys, json, time, subprocess
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, GLib, Gio, Gdk
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Gtk, Adw, GLib, Gio, Gdk, GdkPixbuf
 
 HOME = os.path.expanduser("~")
 CFG = os.path.join(HOME, ".config")
@@ -21,23 +24,48 @@ HYPRIDLE = os.path.join(CFG, "hypr", "hypridle.conf")
 HYPRPAPER = os.path.join(CFG, "hypr", "hyprpaper.conf")
 HYPRLOCK = os.path.join(CFG, "hypr", "hyprlock.conf")
 HYPRSUNSET = os.path.join(CFG, "hypr", "hyprsunset.conf")
+LOCAL_LUA = os.path.join(CFG, "hypr", "local.lua")
+WALLS = os.path.join(HOME, "Pictures", "Wallpapers")
 UPDATE_NOW = os.path.join(CFG, "waybar", "scripts", "update-now.sh")
 RUNTIME = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
+MONO = '"JetBrainsMono Nerd Font", monospace'
 
-CSS = """
-.sigil-brand { font-family: "JetBrainsMono Nerd Font", monospace; font-size: 0.85em;
-               letter-spacing: 0.18em; color: @accent_color;
-               text-shadow: 0 0 10px alpha(@accent_color, 0.55); }
-.sigil-mono { font-family: "JetBrainsMono Nerd Font", monospace; }
-.sigil-dim { color: alpha(@window_fg_color, 0.55); }
-preferencesgroup label.title, preferencesgroup .heading { font-family: "JetBrainsMono Nerd Font", monospace;
-               letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.8em;
-               color: @accent_color; }
-.boxed-list { border: 1px solid @borders; }
-scale trough { min-height: 4px; }
-scale highlight { background: @accent_color; box-shadow: 0 0 6px alpha(@accent_color, 0.6); }
-scale slider { border-radius: 0; background: @accent_color; }
-switch:checked { background: @accent_color; }
+CSS = f"""
+.sigil-brand {{ font-family: {MONO}; font-size: 0.8em; letter-spacing: 0.2em; color: @accent_color;
+               text-shadow: 0 0 10px alpha(@accent_color, 0.55); }}
+.sigil-mono {{ font-family: {MONO}; }}
+.sigil-dim {{ color: alpha(@window_fg_color, 0.55); }}
+.sigil-page-title {{ font-family: {MONO}; font-size: 1.1em; letter-spacing: 0.12em; }}
+preferencesgroup > box > box > label.title, preferencesgroup label.heading {{
+    font-family: {MONO}; letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.78em;
+    font-weight: normal; color: @accent_color; }}
+.boxed-list {{ border: 1px solid @borders; border-radius: 0; }}
+scale trough {{ min-height: 4px; }}
+scale highlight {{ background: @accent_color; box-shadow: 0 0 6px alpha(@accent_color, 0.6); }}
+scale slider {{ border-radius: 0; background: @accent_color; }}
+switch:checked {{ background: @accent_color; }}
+/* sidebar */
+.sigil-sidebar {{ background: @sidebar_bg_color; border-right: 1px solid @borders; }}
+.sigil-sidebar row {{ padding: 8px 14px; margin: 2px 6px; border-radius: 0; border-left: 2px solid transparent; }}
+.sigil-sidebar row label {{ font-family: {MONO}; letter-spacing: 0.06em; font-size: 0.9em; }}
+.sigil-sidebar row:selected {{ background: alpha(@accent_color, 0.08); border-left-color: @accent_color; }}
+.sigil-sidebar row:selected label, .sigil-sidebar row:selected image {{ color: @accent_color; }}
+.sigil-sidebar row:hover {{ background: alpha(@window_fg_color, 0.04); }}
+/* dashboard */
+.stat-card {{ background: @card_bg_color; border: 1px solid @borders; padding: 14px 16px; min-width: 150px; }}
+.stat-card.alert {{ border-color: @warning_color; }}
+.stat-card.bad {{ border-color: @error_color; }}
+.stat-label {{ font-family: {MONO}; font-size: 0.7em; letter-spacing: 0.15em; color: alpha(@window_fg_color, 0.5); }}
+.stat-value {{ font-family: {MONO}; font-size: 1.7em; color: @accent_color; text-shadow: 0 0 10px alpha(@accent_color, 0.45); }}
+.stat-sub {{ font-family: {MONO}; font-size: 0.75em; color: alpha(@window_fg_color, 0.6); }}
+.stat-bar trough {{ min-height: 3px; border-radius: 0; background: @borders; }}
+.stat-bar progress {{ min-height: 3px; border-radius: 0; background: @accent_color; box-shadow: 0 0 6px alpha(@accent_color, 0.6); }}
+.sigil-hero {{ font-family: {MONO}; font-size: 0.85em; color: alpha(@window_fg_color, 0.7); letter-spacing: 0.05em; }}
+/* wallpaper gallery */
+.wall-tile {{ border: 1px solid @borders; padding: 0; margin: 4px; background: @card_bg_color; }}
+.wall-tile.current {{ border-color: @accent_color; box-shadow: 0 0 10px alpha(@accent_color, 0.5); }}
+.wall-name {{ font-family: {MONO}; font-size: 0.72em; padding: 4px 6px; color: alpha(@window_fg_color, 0.7); }}
+.key-cap {{ font-family: {MONO}; font-size: 0.8em; padding: 2px 8px; border: 1px solid @borders; background: @card_bg_color; color: @accent_color; }}
 """
 
 
@@ -45,8 +73,7 @@ switch:checked { background: @accent_color; }
 def run(cmd, timeout=5):
     """Run a command (list or shell string) and return stdout, '' on failure."""
     try:
-        r = subprocess.run(cmd, shell=isinstance(cmd, str), capture_output=True,
-                           text=True, timeout=timeout)
+        r = subprocess.run(cmd, shell=isinstance(cmd, str), capture_output=True, text=True, timeout=timeout)
         return r.stdout.strip()
     except (subprocess.SubprocessError, OSError):
         return ""
@@ -68,26 +95,30 @@ def restart(proc, command=None):
     GLib.timeout_add(300, lambda: (hypr_exec(command or proc), False)[1])
 
 
+def read(path, default=""):
+    try:
+        with open(path) as f:
+            return f.read()
+    except OSError:
+        return default
+
+
 # ── small widget helpers ──────────────────────────────────────────────────────
 def scale_row(title, subtitle, value, on_change, lo=0, hi=100, step=1, fmt="{:.0f}%"):
     row = Adw.ActionRow(title=title, subtitle=subtitle)
     scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, lo, hi, step)
-    scale.set_value(value)
-    scale.set_size_request(240, -1)
-    scale.set_valign(Gtk.Align.CENTER)
-    label = Gtk.Label(label=fmt.format(value), width_chars=5, xalign=1)
-    label.add_css_class("sigil-mono")
+    scale.set_value(value); scale.set_size_request(220, -1); scale.set_valign(Gtk.Align.CENTER)
+    label = Gtk.Label(label=fmt.format(value), width_chars=7, xalign=1); label.add_css_class("sigil-mono")
     pending = {"id": 0}
 
     def changed(s):
-        v = s.get_value()
-        label.set_label(fmt.format(v))
+        v = s.get_value(); label.set_label(fmt.format(v))
         if pending["id"]:
             GLib.source_remove(pending["id"])
         pending["id"] = GLib.timeout_add(150, lambda: (on_change(v), pending.update(id=0), False)[2])
     scale.connect("value-changed", changed)
-    row.add_suffix(scale)
-    row.add_suffix(label)
+    row.add_suffix(scale); row.add_suffix(label)
+    row.scale = scale
     return row
 
 
@@ -102,16 +133,133 @@ def button_row(title, subtitle, *buttons):
     return row
 
 
+def spin(title, subtitle, value, lo, hi, step, digits=0):
+    r = Adw.SpinRow.new_with_range(lo, hi, step)
+    r.set_title(title); r.set_subtitle(subtitle); r.set_digits(digits); r.set_value(value)
+    return r
+
+
+class StatCard(Gtk.Box):
+    """label / big value / sub line / thin bar"""
+    def __init__(self, label, with_bar=True):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.add_css_class("stat-card"); self.set_hexpand(True)
+        l = Gtk.Label(label=label, xalign=0); l.add_css_class("stat-label"); self.append(l)
+        self.value = Gtk.Label(label="—", xalign=0); self.value.add_css_class("stat-value"); self.append(self.value)
+        self.sub = Gtk.Label(label="", xalign=0, ellipsize=3); self.sub.add_css_class("stat-sub"); self.append(self.sub)
+        self.bar = None
+        if with_bar:
+            self.bar = Gtk.ProgressBar(); self.bar.add_css_class("stat-bar"); self.bar.set_margin_top(4); self.append(self.bar)
+
+    def set(self, value, sub="", frac=None, state=""):
+        self.value.set_label(value); self.sub.set_label(sub)
+        if self.bar is not None and frac is not None:
+            self.bar.set_fraction(max(0.0, min(1.0, frac)))
+        for c in ("alert", "bad"):
+            self.remove_css_class(c)
+        if state:
+            self.add_css_class(state)
+
+
 # ── pages ─────────────────────────────────────────────────────────────────────
+class DashboardPage(Adw.PreferencesPage):
+    def __init__(self, toast, app):
+        super().__init__(title="Dashboard", icon_name="utilities-system-monitor-symbolic")
+        self.app = app
+        hero = Adw.PreferencesGroup()
+        kernel = run(["uname", "-r"]); host = run(["uname", "-n"])
+        h = Gtk.Label(label=f"{host}  //  {os.environ.get('USER', '')}  //  linux {kernel}  //  hyprland", xalign=0)
+        h.add_css_class("sigil-hero"); h.set_wrap(True); hero.add(h)
+        self.add(hero)
+
+        g = Adw.PreferencesGroup(title="Live")
+        grid = Gtk.Grid(column_spacing=10, row_spacing=10, column_homogeneous=True)
+        self.cpu, self.mem, self.bat, self.gpu = StatCard("CPU"), StatCard("MEMORY"), StatCard("BATTERY"), StatCard("dGPU", False)
+        self.up, self.upd, self.prof, self.night = StatCard("UPTIME", False), StatCard("UPDATES", False), StatCard("PROFILE", False), StatCard("NIGHT LIGHT", False)
+        for i, c in enumerate((self.cpu, self.mem, self.bat, self.gpu, self.up, self.upd, self.prof, self.night)):
+            grid.attach(c, i % 4, i // 4, 1, 1)
+        g.add(grid); self.add(g)
+
+        g = Adw.PreferencesGroup(title="Quick actions")
+        g.add(button_row("Lock", "loginctl lock-session", ("Lock now", lambda: spawn(["loginctl", "lock-session"]), None)))
+        g.add(button_row("Session", "power menu / log out", ("Power menu", lambda: spawn(["wlogout"]), None)))
+        g.add(button_row("Control center", "notifications and toggles", ("Open", lambda: spawn(["swaync-client", "-t", "-sw"]), None)))
+        self.add(g)
+
+        self.prev = None
+        self.tick_id = 0
+        self.tick()
+
+    @staticmethod
+    def bat_dir():
+        for d in sorted(os.listdir("/sys/class/power_supply")) if os.path.isdir("/sys/class/power_supply") else []:
+            if d.startswith("BAT"):
+                return "/sys/class/power_supply/" + d
+        return None
+
+    def tick(self):
+        # CPU from /proc/stat delta
+        f = read("/proc/stat").split("\n")[0].split()
+        if len(f) > 5:
+            vals = list(map(int, f[1:9])); idle = vals[3] + vals[4]; total = sum(vals)
+            if self.prev:
+                dt, di = total - self.prev[0], idle - self.prev[1]
+                pct = 100 * (dt - di) / dt if dt else 0
+                load = read("/proc/loadavg").split()[:3]
+                self.cpu.set(f"{pct:.0f}%", "load " + " ".join(load), pct / 100, "alert" if pct > 85 else "")
+            self.prev = (total, idle)
+        # memory
+        mi = {}
+        for line in read("/proc/meminfo").splitlines():
+            k, _, v = line.partition(":"); mi[k] = int(v.split()[0]) if v.split() else 0
+        if mi.get("MemTotal"):
+            used = mi["MemTotal"] - mi.get("MemAvailable", 0)
+            self.mem.set(f"{used / 1048576:.1f} G", f"of {mi['MemTotal'] / 1048576:.1f} G · swap {(mi.get('SwapTotal', 0) - mi.get('SwapFree', 0)) / 1048576:.1f} G",
+                         used / mi["MemTotal"], "alert" if used / mi["MemTotal"] > 0.9 else "")
+        # battery
+        b = self.bat_dir()
+        if b:
+            cap = int(read(b + "/capacity", "0") or 0); st = read(b + "/status").strip()
+            pw = read(b + "/power_now", "0").strip()
+            watts = f"{int(pw) / 1e6:.1f} W · " if pw.isdigit() and int(pw) else ""
+            state = "bad" if cap <= 15 and st == "Discharging" else ("alert" if cap <= 30 and st == "Discharging" else "")
+            self.bat.set(f"{cap}%", watts + st.lower(), cap / 100, state)
+        # dGPU: ONLY runtime_status, anything else wakes the card
+        gs = ""
+        for card in ("card1", "card0", "card2"):
+            p = f"/sys/class/drm/{card}/device/power/runtime_status"
+            v = read(p).strip()
+            if v and "amdgpu" in os.path.realpath(f"/sys/class/drm/{card}/device/driver") and read(f"/sys/class/drm/{card}/device/power/control").strip() == "auto":
+                gs = v; break
+        self.gpu.set(gs or "n/a", "runtime power state", state="" if gs != "active" else "alert")
+        # uptime
+        try:
+            secs = float(read("/proc/uptime", "0").split()[0])
+            self.up.set(f"{int(secs // 3600)}h {int(secs % 3600 // 60):02d}m", time.strftime("since %a %H:%M", time.localtime(time.time() - secs)))
+        except (ValueError, IndexError):
+            pass
+        # updates cache
+        try:
+            d = json.loads(read(os.path.join(RUNTIME, "waybar-updates.json"), "{}"))
+            n = re.sub(r"\D", "", d.get("text", "")) or "0"
+            self.upd.set(n, d.get("tooltip", "").replace("\n", " · ") or "not checked", state="alert" if n != "0" else "")
+        except ValueError:
+            self.upd.set("?", "cache unreadable")
+        # profile / night light (cheap: files + one fast script)
+        prof = read("/sys/firmware/acpi/platform_profile").strip() or read(os.path.join(RUNTIME, "ppd-profile")).strip()
+        self.prof.set(prof or self.app.profile_cache, "power-profiles-daemon")
+        self.night.set("on" if self.app.night_cache else "off", "hyprsunset")
+        self.tick_id = GLib.timeout_add_seconds(2, self.tick)
+        return False
+
+
 class SoundsPage(Adw.PreferencesPage):
-    def __init__(self, toast):
+    def __init__(self, toast, app):
         super().__init__(title="Sounds", icon_name="audio-input-microphone-symbolic")
         self.toast = toast
         cfg = self.read_cfg()
-
         g = Adw.PreferencesGroup(title="Typewriter key sounds",
-                                 description="Mechanical key clicks synthesised in the theme. "
-                                             "Runs as a small daemon reading the keyboard.")
+                                 description="Mechanical key clicks synthesised in the theme. Runs as a small daemon reading the keyboard.")
         self.enabled = Adw.SwitchRow(title="Key sounds", subtitle="Start or stop the daemon")
         self.enabled.set_active(run([KS_SH, "state"]) == "true")
         self.enabled.connect("notify::active", self.on_enabled)
@@ -121,10 +269,8 @@ class SoundsPage(Adw.PreferencesPage):
         self.add(g)
 
         g = Adw.PreferencesGroup(title="Sound pack",
-                                 description="Packs live in ~/.config/keysound/packs/NAME/ as ten "
-                                             "WAV files: key0-3, space, backspace, mod, enter, hold, release.")
-        self.packs = sorted(d for d in os.listdir(os.path.join(KS, "packs"))
-                            if os.path.isdir(os.path.join(KS, "packs", d)))
+                                 description="Packs live in ~/.config/keysound/packs/NAME/ as ten WAV files: key0-3, space, backspace, mod, enter, hold, release.")
+        self.packs = sorted(d for d in os.listdir(os.path.join(KS, "packs")) if os.path.isdir(os.path.join(KS, "packs", d)))
         self.pack = Adw.ComboRow(title="Active pack", subtitle="Switches live, no restart needed")
         self.pack.set_model(Gtk.StringList.new([self.pretty(p) for p in self.packs]))
         cur = cfg.get("pack", "cybersigil")
@@ -134,25 +280,20 @@ class SoundsPage(Adw.PreferencesPage):
         g.add(button_row("Preview", "Plays the selected pack through the mixer",
                          ("Preview", self.preview, "suggested-action"),
                          ("Open folder", lambda: spawn(["xdg-open", os.path.join(KS, "packs")]), None)))
-        g.add(button_row("Regenerate packs", "Re-synthesise the built-in packs from gen-sounds.py",
+        g.add(button_row("Regenerate packs", "Re-synthesise the built-in packs from gen-sounds.py (a few seconds)",
                          ("Regenerate", self.regen, None)))
         self.add(g)
 
     @staticmethod
     def pretty(name):
-        return {"cybersigil": "Cybersigil (typewriter)", "animalese": "Animalese (Animal Crossing)"}.get(
-            name, name.replace("-", " ").title())
+        return {"cybersigil": "Cybersigil (typewriter)", "animalese": "Animalese (Animal Crossing)"}.get(name, name.replace("-", " ").title())
 
     @staticmethod
     def read_cfg():
         out = {}
-        try:
-            for line in open(os.path.join(KS, "config")):
-                if "=" in line and not line.startswith("#"):
-                    k, v = line.split("=", 1)
-                    out[k.strip()] = v.strip()
-        except OSError:
-            pass
+        for line in read(os.path.join(KS, "config")).splitlines():
+            if "=" in line and not line.startswith("#"):
+                k, v = line.split("=", 1); out[k.strip()] = v.strip()
         return out
 
     def on_enabled(self, row, _):
@@ -161,31 +302,29 @@ class SoundsPage(Adw.PreferencesPage):
 
     def on_pack(self, row, _):
         name = self.packs[row.get_selected()]
-        run([KS_SH, "pack", name])
-        self.toast(f"Pack: {self.pretty(name)}")
+        run([KS_SH, "pack", name]); self.toast(f"Pack: {self.pretty(name)}")
 
     def preview(self):
-        name = self.packs[self.pack.get_selected()]
-        spawn(["python3", os.path.join(KS, "keysoundd.py"), "--demo", "--pack", name])
+        spawn(["python3", os.path.join(KS, "keysoundd.py"), "--demo", "--pack", self.packs[self.pack.get_selected()]])
 
     def regen(self):
         for p in ("cybersigil", "animalese"):
             run(["python3", os.path.join(KS, "gen-sounds.py"), "--pack", p], timeout=120)
-        run([KS_SH, "pack", self.packs[self.pack.get_selected()]])  # HUP reloads samples
+        run([KS_SH, "pack", self.packs[self.pack.get_selected()]])
         self.toast("Packs regenerated")
 
 
 class PowerPage(Adw.PreferencesPage):
-    def __init__(self, toast):
+    def __init__(self, toast, app):
         super().__init__(title="Power", icon_name="battery-symbolic")
-        self.toast = toast
+        self.toast, self.app = toast, app
 
         g = Adw.PreferencesGroup(title="Power profile")
         self.profiles = [l.strip().lstrip("* ").rstrip(":") for l in run(["powerprofilesctl", "list"]).splitlines()
                          if l.strip().endswith(":") and not l.startswith("    ")]
         self.profile = Adw.ComboRow(title="Profile", subtitle="power-profiles-daemon / amd-pstate-epp")
         self.profile.set_model(Gtk.StringList.new(self.profiles or ["unavailable"]))
-        cur = run(["powerprofilesctl", "get"])
+        cur = run(["powerprofilesctl", "get"]); app.profile_cache = cur
         if cur in self.profiles:
             self.profile.set_selected(self.profiles.index(cur))
         self.profile.connect("notify::selected", self.on_profile)
@@ -200,59 +339,60 @@ class PowerPage(Adw.PreferencesPage):
         g = Adw.PreferencesGroup(title="Display")
         b = run(["brightnessctl", "-m"]).split(",")
         cur_b = float(b[3].rstrip("%")) if len(b) > 3 else 100
-        g.add(scale_row("Brightness", "Panel backlight", cur_b,
-                        lambda v: run(["brightnessctl", "-q", "set", f"{int(v)}%"]), lo=1))
+        g.add(scale_row("Brightness", "Panel backlight", cur_b, lambda v: run(["brightnessctl", "-q", "set", f"{int(v)}%"]), lo=1))
         self.add(g)
 
         g = Adw.PreferencesGroup(title="Night light",
-                                 description="hyprsunset warms the screen on a schedule; the override switch lasts "
-                                             "until the next scheduled change.")
+                                 description="hyprsunset warms the screen on a schedule; the override switch lasts until the next scheduled change.")
         ns = self.read_sunset()
         self.sched = Adw.SwitchRow(title="Schedule", subtitle="Run hyprsunset at login and follow the times below")
-        self.sched.set_active(ns["enabled"])
-        g.add(self.sched)
+        self.sched.set_active(ns["enabled"]); g.add(self.sched)
         self.night = Adw.SwitchRow(title="Night light now", subtitle="Manual override")
-        self.night.set_active(run([NIGHTLIGHT, "state"]) == "true")
-        self.night.connect("notify::active", lambda r, _: (run([NIGHTLIGHT, "on" if r.get_active() else "off"]),
-                                                            self.toast("Night light " + ("on" if r.get_active() else "off"))))
+        app.night_cache = run([NIGHTLIGHT, "state"]) == "true"
+        self.night.set_active(app.night_cache)
+        self.night.connect("notify::active", self.on_night)
         g.add(self.night)
         self.temp_val, self.gamma_val, self.day_val = ns["temp"], ns["gamma"], ns["day"]
         g.add(scale_row("Night warmth", "Colour temperature at night (lower = warmer); previews live", ns["temp"],
                         self.preview_temp, lo=2500, hi=6000, step=100, fmt="{:.0f} K"))
-        g.add(scale_row("Night brightness", "Gamma applied with the warm tint; previews live", ns["gamma"],
-                        self.preview_gamma, lo=40, hi=100, step=5))
-        g.add(scale_row("Day warmth", "Daytime colour temperature; 6500 K = untouched", ns["day"],
-                        self.preview_day, lo=4000, hi=6500, step=100, fmt="{:.0f} K"))
+        g.add(scale_row("Night brightness", "Gamma applied with the warm tint; previews live", ns["gamma"], self.preview_gamma, lo=40, hi=100, step=5))
+        g.add(scale_row("Day warmth", "Daytime colour temperature; 6500 K = untouched", ns["day"], self.preview_day, lo=4000, hi=6500, step=100, fmt="{:.0f} K"))
         self.start = Adw.EntryRow(title="Evening start (HH:MM)"); self.start.set_text(ns["start"])
         self.end = Adw.EntryRow(title="Morning end (HH:MM)"); self.end.set_text(ns["end"])
         g.add(self.start); g.add(self.end)
-        g.add(button_row("Apply schedule", "Write hyprsunset.conf and restart hyprsunset",
-                         ("Apply", self.apply_sunset, "suggested-action")))
+        g.add(button_row("Apply schedule", "Write hyprsunset.conf and restart hyprsunset", ("Apply", self.apply_sunset, "suggested-action")))
         self.add(g)
 
-        g = Adw.PreferencesGroup(title="Idle timers",
-                                 description="Rewrites hypridle.conf and restarts hypridle. 0 disables a step.")
+        g = Adw.PreferencesGroup(title="Idle timers", description="Rewrites hypridle.conf and restarts hypridle. 0 disables a step.")
         t = self.read_idle()
-        self.dim = self.spin("Dim after", "minutes", t["dim"] / 60, 0, 120, 0.5, 1)
-        self.dim_level = self.spin("Dim level", "percent of full brightness", t["dim_level"], 1, 100, 5, 0)
-        self.lock = self.spin("Lock after", "minutes", t["lock"] / 60, 0, 240, 0.5, 1)
-        self.off = self.spin("Screen off after", "minutes", t["off"] / 60, 0, 240, 0.5, 1)
-        self.sleep = self.spin("Sleep after", "minutes, suspend-then-hibernate", t["sleep"] / 60, 0, 480, 0.5, 1)
+        self.dim = spin("Dim after", "minutes", t["dim"] / 60, 0, 120, 0.5, 1)
+        self.dim_level = spin("Dim level", "percent of full brightness", t["dim_level"], 1, 100, 5)
+        self.lock = spin("Lock after", "minutes", t["lock"] / 60, 0, 240, 0.5, 1)
+        self.off = spin("Screen off after", "minutes", t["off"] / 60, 0, 240, 0.5, 1)
+        self.sleep = spin("Sleep after", "minutes, suspend-then-hibernate", t["sleep"] / 60, 0, 480, 0.5, 1)
         for r in (self.dim, self.dim_level, self.lock, self.off, self.sleep):
             g.add(r)
-        g.add(button_row("Apply", "Write the config and restart the idle daemon",
-                         ("Apply", self.apply_idle, "suggested-action")))
+        g.add(button_row("Apply", "Write the config and restart the idle daemon", ("Apply", self.apply_idle, "suggested-action")))
         self.add(g)
+
+    def on_profile(self, row, _):
+        if self.profiles:
+            p = self.profiles[row.get_selected()]
+            run(["powerprofilesctl", "set", p]); self.app.profile_cache = p; self.toast(f"Profile: {p}")
+
+    def on_night(self, r, _):
+        run([NIGHTLIGHT, "on" if r.get_active() else "off"]); self.app.night_cache = r.get_active()
+        self.toast("Night light " + ("on" if r.get_active() else "off"))
 
     @staticmethod
     def read_sunset():
         d = {"start": "21:00", "end": "07:30", "temp": 4200, "gamma": 100, "day": 6500, "enabled": True}
-        try:
-            text = open(HYPRSUNSET).read()
-        except OSError:
+        text = read(HYPRSUNSET)
+        if not text:
             return d
         d["enabled"] = not re.search(r"^#\s*schedule\s*=\s*off", text, re.M)
         blocks = re.findall(r"profile\s*\{(.*?)\}", text, re.S)
+
         def temp_of(b):
             m = re.search(r"temperature\s*=\s*(\d+)", b)
             return int(m.group(1)) if m else 6500
@@ -264,8 +404,7 @@ class PowerPage(Adw.PreferencesPage):
             hhmm = f"{int(t.group(1)):02d}:{int(t.group(2)):02d}"
             if b is night:
                 d["start"], d["temp"] = hhmm, temp_of(b)
-                g = re.search(r"gamma\s*=\s*(\d+)", b)
-                d["gamma"] = int(g.group(1)) if g else 100
+                g = re.search(r"gamma\s*=\s*(\d+)", b); d["gamma"] = int(g.group(1)) if g else 100
             else:
                 d["end"], d["day"] = hhmm, temp_of(b)
         return d
@@ -283,8 +422,7 @@ class PowerPage(Adw.PreferencesPage):
     def preview_day(self, v):
         self.day_val = int(v)
         if not self.night.get_active():
-            run(["hyprctl", "hyprsunset", "identity"] if self.day_val >= 6500 else
-                ["hyprctl", "hyprsunset", "temperature", str(self.day_val)])
+            run(["hyprctl", "hyprsunset", "identity"] if self.day_val >= 6500 else ["hyprctl", "hyprsunset", "temperature", str(self.day_val)])
 
     def apply_sunset(self):
         times = []
@@ -299,47 +437,27 @@ class PowerPage(Adw.PreferencesPage):
         with open(HYPRSUNSET, "w") as f:
             f.write("# hyprsunset schedule (generated by sigil-settings) - warm evenings, neutral by day\n"
                     "# manual override: ~/.config/swaync/nightlight.sh on|off|toggle\n"
-                    f"# schedule = {'on' if enabled else 'off'}\n"
-                    "max-gamma = 150\n\n"
+                    f"# schedule = {'on' if enabled else 'off'}\nmax-gamma = 150\n\n"
                     f"profile {{\n    time = {times[1]}\n{day}}}\n\n"
                     f"profile {{\n    time = {times[0]}\n    temperature = {self.temp_val}\n{night_gamma}}}\n")
         run([NIGHTLIGHT, "reset"])
         if enabled:
             restart("hyprsunset")
         else:
-            run(["hyprctl", "hyprsunset", "identity"]); run(["hyprctl", "hyprsunset", "gamma", "100"])
-            run(["pkill", "-x", "hyprsunset"])
+            run(["hyprctl", "hyprsunset", "identity"]); run(["hyprctl", "hyprsunset", "gamma", "100"]); run(["pkill", "-x", "hyprsunset"])
         GLib.timeout_add(900, lambda: (self.night.set_active(run([NIGHTLIGHT, "state"]) == "true"), False)[1])
         self.toast("Night light schedule applied" if enabled else "Night light schedule disabled")
 
     @staticmethod
-    def spin(title, subtitle, value, lo, hi, step, digits):
-        r = Adw.SpinRow.new_with_range(lo, hi, step)
-        r.set_title(title); r.set_subtitle(subtitle); r.set_digits(digits); r.set_value(value)
-        return r
-
-    def on_profile(self, row, _):
-        if self.profiles:
-            p = self.profiles[row.get_selected()]
-            run(["powerprofilesctl", "set", p])
-            self.toast(f"Profile: {p}")
-
-    @staticmethod
     def read_idle():
         t = {"dim": 120, "dim_level": 15, "lock": 300, "off": 600, "sleep": 630}
-        try:
-            text = open(HYPRIDLE).read()
-        except OSError:
-            return t
-        for block in re.findall(r"listener\s*\{(.*?)\}", text, re.S):
-            m = re.search(r"timeout\s*=\s*(\d+)", block)
-            cmd = re.search(r"on-timeout\s*=\s*(.*)", block)
+        for block in re.findall(r"listener\s*\{(.*?)\}", read(HYPRIDLE), re.S):
+            m = re.search(r"timeout\s*=\s*(\d+)", block); cmd = re.search(r"on-timeout\s*=\s*(.*)", block)
             if not (m and cmd):
                 continue
             secs, c = int(m.group(1)), cmd.group(1)
             if "brightnessctl" in c:
-                t["dim"] = secs
-                lvl = re.search(r"set\s+(\d+)%", c)
+                t["dim"] = secs; lvl = re.search(r"set\s+(\d+)%", c)
                 if lvl:
                     t["dim_level"] = int(lvl.group(1))
             elif "lock-session" in c:
@@ -353,159 +471,295 @@ class PowerPage(Adw.PreferencesPage):
     def apply_idle(self):
         dim, lock, off, sleep = (int(round(r.get_value() * 60)) for r in (self.dim, self.lock, self.off, self.sleep))
         level = int(self.dim_level.get_value())
-        parts = ["general {",
-                 "    # plain hyprlock: a stale/hung hyprlock must not block re-locking",
-                 "    lock_cmd = hyprlock",
-                 "    before_sleep_cmd = loginctl lock-session",
-                 "    after_sleep_cmd = hyprctl dispatch 'hl.dsp.dpms(\"on\")'",
-                 "    inhibit_sleep = 3   # delay suspend until the lock screen is drawn",
-                 "}", "",
+        parts = ["general {", "    # plain hyprlock: a stale/hung hyprlock must not block re-locking", "    lock_cmd = hyprlock",
+                 "    before_sleep_cmd = loginctl lock-session", "    after_sleep_cmd = hyprctl dispatch 'hl.dsp.dpms(\"on\")'",
+                 "    inhibit_sleep = 3   # delay suspend until the lock screen is drawn", "}", "",
                  "# generated by sigil-settings; edit there or by hand (timeouts in seconds)"]
         if dim:
-            parts += ["", "listener {", f"    timeout = {dim}", f"    on-timeout = brightnessctl -s set {level}%",
-                      "    on-resume = brightnessctl -r", "}"]
+            parts += ["", "listener {", f"    timeout = {dim}", f"    on-timeout = brightnessctl -s set {level}%", "    on-resume = brightnessctl -r", "}"]
         if lock:
             parts += ["", "listener {", f"    timeout = {lock}", "    on-timeout = loginctl lock-session", "}"]
         if off:
-            parts += ["", "listener {", f"    timeout = {off}", "    on-timeout = hyprctl dispatch 'hl.dsp.dpms(\"off\")'",
-                      "    on-resume = hyprctl dispatch 'hl.dsp.dpms(\"on\")'", "}"]
+            parts += ["", "listener {", f"    timeout = {off}", "    on-timeout = hyprctl dispatch 'hl.dsp.dpms(\"off\")'", "    on-resume = hyprctl dispatch 'hl.dsp.dpms(\"on\")'", "}"]
         if sleep:
             parts += ["", "listener {", f"    timeout = {sleep}", "    on-timeout = systemctl suspend-then-hibernate", "}"]
         with open(HYPRIDLE, "w") as f:
             f.write("\n".join(parts) + "\n")
-        restart("hypridle")
-        self.toast("hypridle restarted with new timers")
+        restart("hypridle"); self.toast("hypridle restarted with new timers")
 
 
 class DesktopPage(Adw.PreferencesPage):
-    def __init__(self, toast):
+    def __init__(self, toast, app):
         super().__init__(title="Desktop", icon_name="preferences-desktop-wallpaper-symbolic")
         self.toast = toast
-
-        g = Adw.PreferencesGroup(title="Wallpaper")
         self.wall = self.read_wallpaper()
-        self.wall_row = button_row("Image", self.wall or "none set", ("Choose…", self.pick_wallpaper, None))
-        g.add(self.wall_row)
+
+        g = Adw.PreferencesGroup(title="Wallpaper", description=f"Images in {WALLS.replace(HOME, '~')}. Click a tile to apply; hyprlock's background follows.")
+        self.flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=4, min_children_per_line=2,
+                                column_spacing=6, row_spacing=6, homogeneous=True)
+        self.tiles = {}
+        self.fill_gallery()
+        g.add(self.flow)
+        g.add(button_row("Other image", "Pick any file; it is copied into the wallpaper folder", ("Choose…", self.pick_wallpaper, None)))
         self.add(g)
 
         g = Adw.PreferencesGroup(title="Updates")
         self.upd = button_row("Pending packages", self.update_text(),
-                              ("Check now", self.check_updates, None),
-                              ("Update", lambda: spawn([UPDATE_NOW]), "suggested-action"))
-        g.add(self.upd)
-        self.add(g)
+                              ("Check now", self.check_updates, None), ("Update", lambda: spawn([UPDATE_NOW]), "suggested-action"))
+        g.add(self.upd); self.add(g)
 
         g = Adw.PreferencesGroup(title="Services", description="Restart a piece of the desktop without logging out.")
         for title, sub, cb in (
             ("Waybar", "status bar", lambda: restart("waybar")),
-            ("SwayNC", "notifications + control center (reloads config and style)",
-             lambda: (run(["swaync-client", "-R"]), run(["swaync-client", "-rs"]))),
+            ("SwayNC", "notifications + control center (reloads config and style)", lambda: (run(["swaync-client", "-R"]), run(["swaync-client", "-rs"]))),
             ("hypridle", "idle daemon", lambda: restart("hypridle")),
             ("hyprpaper", "wallpaper daemon", lambda: restart("hyprpaper")),
+            ("hyprsunset", "night light daemon", lambda: restart("hyprsunset")),
             ("Key sounds", "typewriter daemon", lambda: run([KS_SH, "restart"])),
             ("Hyprland config", "hyprctl reload", lambda: run(["hyprctl", "reload"])),
         ):
             g.add(button_row(title, sub, ("Restart", lambda cb=cb, t=title: (cb(), self.toast(f"{t} restarted")), None)))
         self.add(g)
 
+        g = Adw.PreferencesGroup(title="Dotfiles", description="~/dotfiles-and-scripts — configs are symlinks into it; a weekly timer commits and pushes.")
+        st = run(["git", "-C", os.path.join(HOME, "dotfiles-and-scripts"), "status", "--porcelain"])
+        self.dots = button_row("Repository", f"{len(st.splitlines())} uncommitted change(s)" if st else "clean",
+                               ("Sync now", self.sync_dots, "suggested-action"), ("Open", lambda: spawn(["xdg-open", os.path.join(HOME, "dotfiles-and-scripts")]), None))
+        g.add(self.dots); self.add(g)
+
+    # wallpaper
     @staticmethod
     def read_wallpaper():
-        try:
-            m = re.search(r"^\s*path\s*=\s*(.+)$", open(HYPRPAPER).read(), re.M)
-            return m.group(1).strip() if m else ""
-        except OSError:
-            return ""
+        m = re.search(r"^\s*path\s*=\s*(.+)$", read(HYPRPAPER), re.M)
+        return m.group(1).strip() if m else ""
+
+    def fill_gallery(self):
+        for child in list(self.tiles.values()):
+            self.flow.remove(child)
+        self.tiles.clear()
+        files = sorted(f for f in (os.listdir(WALLS) if os.path.isdir(WALLS) else []) if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) and not f.endswith("_raw.png"))
+        for f in files:
+            path = os.path.join(WALLS, f)
+            try:
+                pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 200, 112, True)
+            except GLib.Error:
+                continue
+            pic = Gtk.Picture.new_for_pixbuf(pb); pic.set_size_request(200, 112); pic.set_content_fit(Gtk.ContentFit.COVER)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL); box.add_css_class("wall-tile")
+            box.append(pic)
+            name = Gtk.Label(label=os.path.splitext(f)[0], xalign=0, ellipsize=3); name.add_css_class("wall-name"); box.append(name)
+            btn = Gtk.Button(child=box); btn.add_css_class("flat"); btn.set_tooltip_text(path)
+            btn.connect("clicked", lambda _b, p=path: self.apply_wallpaper(p))
+            if os.path.realpath(path) == os.path.realpath(self.wall):
+                box.add_css_class("current")
+            self.tiles[path] = btn; self.flow.append(btn)
 
     def pick_wallpaper(self):
         dlg = Gtk.FileDialog(title="Choose wallpaper")
         f = Gtk.FileFilter(); f.set_name("Images"); f.add_mime_type("image/*")
-        fl = Gio.ListStore.new(Gtk.FileFilter); fl.append(f)
-        dlg.set_filters(fl)
-        start = os.path.join(HOME, "Pictures", "Wallpapers")
-        if os.path.isdir(start):
-            dlg.set_initial_folder(Gio.File.new_for_path(start))
-        dlg.open(self.get_root(), None, self.on_wallpaper)
+        fl = Gio.ListStore.new(Gtk.FileFilter); fl.append(f); dlg.set_filters(fl)
+        dlg.open(self.get_root(), None, self.on_picked)
 
-    def on_wallpaper(self, dlg, res):
+    def on_picked(self, dlg, res):
         try:
-            gfile = dlg.open_finish(res)
+            path = dlg.open_finish(res).get_path()
         except GLib.Error:
             return
-        path = gfile.get_path()
+        os.makedirs(WALLS, exist_ok=True)
+        dest = os.path.join(WALLS, os.path.basename(path))
+        if os.path.realpath(path) != os.path.realpath(dest):
+            import shutil; shutil.copy2(path, dest)
+        self.apply_wallpaper(dest); self.fill_gallery()
+
+    def apply_wallpaper(self, path):
         with open(HYPRPAPER, "w") as f:
             f.write("wallpaper {\n    monitor =\n    path = %s\n    fit_mode = cover\n}\nsplash = false\n" % path)
-        # keep hyprlock's blurred background in sync when it pointed at the old wallpaper
-        try:
-            text = open(HYPRLOCK).read()
-            if self.wall and self.wall in text:
-                open(HYPRLOCK, "w").write(text.replace(self.wall, path))
-        except OSError:
-            pass
+        text = read(HYPRLOCK)
+        if self.wall and self.wall in text:
+            with open(HYPRLOCK, "w") as f:
+                f.write(text.replace(self.wall, path))
         self.wall = path
-        self.wall_row.set_subtitle(path)
-        restart("hyprpaper")
-        self.toast("Wallpaper applied")
+        for p, btn in self.tiles.items():
+            box = btn.get_child()
+            (box.add_css_class if os.path.realpath(p) == os.path.realpath(path) else box.remove_css_class)("current")
+        restart("hyprpaper"); self.toast("Wallpaper applied")
 
+    # updates / dotfiles
     @staticmethod
     def update_text():
         try:
-            d = json.load(open(os.path.join(RUNTIME, "waybar-updates.json")))
+            d = json.loads(read(os.path.join(RUNTIME, "waybar-updates.json"), "{}"))
             n = d.get("text", "").strip()
-            return f"{n or 0} pending" if n and n != "" else "up to date"
-        except (OSError, ValueError):
+            return f"{n} pending" if n else "up to date"
+        except ValueError:
             return "not checked yet"
 
     def check_updates(self):
-        run(["pkill", "-RTMIN+9", "-x", "waybar"])
-        self.toast("Checking for updates…")
+        run(["pkill", "-RTMIN+9", "-x", "waybar"]); self.toast("Checking for updates…")
         GLib.timeout_add(8000, lambda: (self.upd.set_subtitle(self.update_text()), False)[1])
+
+    def sync_dots(self):
+        out = run([os.path.join(HOME, ".local", "bin", "dots-sync")], timeout=60)
+        self.dots.set_subtitle(out.replace("\n", " · ") or "nothing to do"); self.toast("Dotfiles synced")
+
+
+class InputPage(Adw.PreferencesPage):
+    """Keyboard / mouse / touchpad overrides written to ~/.config/hypr/local.lua (loaded with pcall, so a bad
+    write can never take the session down). The main hyprland.lua is never touched."""
+    def __init__(self, toast, app):
+        super().__init__(title="Input", icon_name="input-keyboard-symbolic")
+        self.toast = toast
+        v = self.current()
+        g = Adw.PreferencesGroup(title="Keyboard", description="Layout stays in hyprland.lua (fr / azerty).")
+        self.rate = spin("Repeat rate", "keys per second while held", v["repeat_rate"], 5, 80, 1)
+        self.delay = spin("Repeat delay", "ms before repeat starts", v["repeat_delay"], 100, 1500, 25)
+        g.add(self.rate); g.add(self.delay); self.add(g)
+
+        g = Adw.PreferencesGroup(title="Mouse")
+        self.sens = scale_row("Sensitivity", "libinput accel bias (-1 … 1)", v["sensitivity"], lambda _v: None, lo=-1, hi=1, step=0.05, fmt="{:+.2f}")
+        g.add(self.sens); self.add(g)
+
+        g = Adw.PreferencesGroup(title="Touchpad")
+        self.natural = Adw.SwitchRow(title="Natural scrolling"); self.natural.set_active(v["natural_scroll"])
+        self.tap = Adw.SwitchRow(title="Tap to click"); self.tap.set_active(v["tap_to_click"])
+        self.dwt = Adw.SwitchRow(title="Disable while typing"); self.dwt.set_active(v["disable_while_typing"])
+        self.clickfinger = Adw.SwitchRow(title="Clickfinger", subtitle="2 fingers = right click, 3 = middle (instead of button areas)")
+        self.clickfinger.set_active(v["clickfinger_behavior"])
+        self.tp_scroll = scale_row("Scroll speed", "touchpad scroll factor", v["scroll_factor"], lambda _v: None, lo=0.2, hi=3, step=0.1, fmt="{:.1f}x")
+        for r in (self.natural, self.tap, self.dwt, self.clickfinger, self.tp_scroll):
+            g.add(r)
+        g.add(button_row("Apply", "Write local.lua and reload Hyprland", ("Apply", self.apply, "suggested-action"),
+                         ("Reset", self.reset, "destructive-action")))
+        self.add(g)
+
+    @staticmethod
+    def opt(name, default):
+        out = run(["hyprctl", "getoption", name]).split("\n")[0]
+        m = re.search(r"(int|float|bool|str):\s*(.+)", out)
+        if not m:
+            return default
+        t, val = m.group(1), m.group(2).strip()
+        return {"int": int, "float": float, "bool": lambda s: s == "true", "str": str}[t](val) if t != "bool" else val == "true"
+
+    def current(self):
+        return {"repeat_rate": self.opt("input:repeat_rate", 25), "repeat_delay": self.opt("input:repeat_delay", 600),
+                "sensitivity": self.opt("input:sensitivity", 0.0), "natural_scroll": self.opt("input:touchpad:natural_scroll", True),
+                "tap_to_click": self.opt("input:touchpad:tap_to_click", True), "disable_while_typing": self.opt("input:touchpad:disable_while_typing", True),
+                "clickfinger_behavior": self.opt("input:touchpad:clickfinger_behavior", False), "scroll_factor": self.opt("input:touchpad:scroll_factor", 1.0)}
+
+    def apply(self):
+        lua = ("-- generated by sigil-settings (Input page); loaded from hyprland.lua with pcall(dofile). Safe to delete.\n"
+               "hl.config({ input = {\n"
+               f"    repeat_rate = {int(self.rate.get_value())}, repeat_delay = {int(self.delay.get_value())},\n"
+               f"    sensitivity = {self.sens.scale.get_value():.2f},\n"
+               "    touchpad = {\n"
+               f"        natural_scroll = {str(self.natural.get_active()).lower()}, tap_to_click = {str(self.tap.get_active()).lower()},\n"
+               f"        disable_while_typing = {str(self.dwt.get_active()).lower()}, clickfinger_behavior = {str(self.clickfinger.get_active()).lower()},\n"
+               f"        scroll_factor = {self.tp_scroll.scale.get_value():.2f},\n"
+               "    },\n} })\n")
+        with open(LOCAL_LUA, "w") as f:
+            f.write(lua)
+        run(["hyprctl", "reload"])
+        err = run(["hyprctl", "configerrors"])
+        self.toast("Input settings applied" if not err.strip() else "Hyprland reported a config error, see hyprctl configerrors")
+
+    def reset(self):
+        try:
+            os.remove(LOCAL_LUA)
+        except OSError:
+            pass
+        run(["hyprctl", "reload"]); self.toast("local.lua removed, back to hyprland.lua defaults")
+
+
+class AboutPage(Adw.PreferencesPage):
+    KEYS = [("SUPER + T", "terminal"), ("SUPER + R", "launcher"), ("SUPER + E", "files"), ("SUPER + B", "browser"),
+            ("SUPER + N", "control center"), ("SUPER + I", "this app"), ("SUPER + L", "lock"), ("SUPER + Q", "close window"),
+            ("SUPER + V", "float"), ("SUPER + SHIFT + V", "clipboard history"), ("SUPER + O", "emoji"), ("SUPER + P", "pop-out (pin)"),
+            ("SUPER + F", "fullscreen"), ("SUPER + 1..9", "workspaces"), ("SUPER + S / D / M", "scratch · discord · spotify"),
+            ("Print", "screenshot → satty"), ("SUPER + Print", "region → clipboard")]
+
+    def __init__(self, toast, app):
+        super().__init__(title="About", icon_name="help-about-symbolic")
+        g = Adw.PreferencesGroup(title="Keys")
+        for k, d in self.KEYS:
+            row = Adw.ActionRow(title=d)
+            cap = Gtk.Label(label=k); cap.add_css_class("key-cap"); cap.set_valign(Gtk.Align.CENTER)
+            row.add_suffix(cap); g.add(row)
+        self.add(g)
+        g = Adw.PreferencesGroup(title="Sigil")
+        for t, s in (("Palette", "cherenkov blue · plasmatic purple · snooze pink · communication red · wavelength green · infrared · phosphorus amber"),
+                     ("Stack", f"hyprland {run(['hyprctl', 'version']).split()[1] if run(['hyprctl', 'version']) else ''} · waybar · swaync · hyprlock · kitty · rofi · zsh + starship"),
+                     ("Repo", "github.com/volcinator8000/dotfiles-and-scripts")):
+            g.add(Adw.ActionRow(title=t, subtitle=s))
+        self.add(g)
 
 
 # ── application ───────────────────────────────────────────────────────────────
+PAGES = [("dashboard", "Dashboard", "utilities-system-monitor-symbolic", DashboardPage),
+         ("sounds", "Sounds", "audio-input-microphone-symbolic", SoundsPage),
+         ("power", "Power", "battery-symbolic", PowerPage),
+         ("desktop", "Desktop", "preferences-desktop-wallpaper-symbolic", DesktopPage),
+         ("input", "Input", "input-keyboard-symbolic", InputPage),
+         ("about", "About", "help-about-symbolic", AboutPage)]
+
+
 class App(Adw.Application):
     def __init__(self):
         super().__init__(application_id="io.sigil.Settings", flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+        self.profile_cache, self.night_cache = "", False
 
     def do_activate(self):
-        win = self.props.active_window
-        if not win:
-            win = self.build()
+        win = self.props.active_window or self.build()
         win.present()
 
     def build(self):
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
         prov = Gtk.CssProvider(); prov.load_from_string(CSS)
-        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), prov,
-                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
-        win = Adw.ApplicationWindow(application=self, title="SIGIL // SETTINGS", default_width=800, default_height=620)
+        win = Adw.ApplicationWindow(application=self, title="SIGIL // SETTINGS", default_width=980, default_height=680)
         toasts = Adw.ToastOverlay()
         toast = lambda msg: toasts.add_toast(Adw.Toast(title=msg, timeout=2))
 
         stack = Adw.ViewStack()
-        for page in (SoundsPage(toast), PowerPage(toast), DesktopPage(toast)):
-            stack.add_titled_with_icon(page, page.get_title().lower(), page.get_title(), page.get_icon_name())
-        import sys
-        if "--page" in sys.argv:  # sigil-settings.py --page power
-            stack.set_visible_child_name(sys.argv[sys.argv.index("--page") + 1])
+        # build Power before Dashboard needs its caches: construct all, then add in order
+        pages = {}
+        for name, title, icon, cls in PAGES:
+            if cls is not DashboardPage:
+                pages[name] = cls(toast, self)
+        pages["dashboard"] = DashboardPage(toast, self)
+        for name, title, icon, cls in PAGES:
+            stack.add_titled_with_icon(pages[name], name, title, icon)
 
-        header = Adw.HeaderBar()
-        brand = Gtk.Label(label="SIGIL // SETTINGS"); brand.add_css_class("sigil-brand")
-        header.pack_start(brand)
-        switcher = Adw.ViewSwitcher(stack=stack, policy=Adw.ViewSwitcherPolicy.WIDE)
-        header.set_title_widget(switcher)
+        sidebar = Gtk.ListBox(); sidebar.add_css_class("navigation-sidebar"); sidebar.add_css_class("sigil-sidebar")
+        sidebar.set_size_request(190, -1)
+        for name, title, icon, _ in PAGES:
+            row = Gtk.ListBoxRow(); row.page = name
+            box = Gtk.Box(spacing=10); box.append(Gtk.Image.new_from_icon_name(icon)); box.append(Gtk.Label(label=title, xalign=0))
+            row.set_child(box); sidebar.append(row)
+        title_lbl = Gtk.Label(label="DASHBOARD"); title_lbl.add_css_class("sigil-page-title")
 
-        view = Adw.ToolbarView()
-        view.add_top_bar(header)
-        view.set_content(stack)
-        toasts.set_child(view)
-        win.set_content(toasts)
+        def on_row(_lb, row):
+            if row:
+                stack.set_visible_child_name(row.page); title_lbl.set_label(row.page.upper())
+        sidebar.connect("row-selected", on_row)
+        brand = Gtk.Label(label="SIGIL // SETTINGS", xalign=0); brand.add_css_class("sigil-brand")
+        brand.set_margin_top(16); brand.set_margin_bottom(8); brand.set_margin_start(20)
+        side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL); side.add_css_class("sigil-sidebar"); side.append(brand); side.append(sidebar)
 
-        # Esc closes
+        header = Adw.HeaderBar(); header.set_title_widget(title_lbl)
+        view = Adw.ToolbarView(); view.add_top_bar(header); view.set_content(stack)
+        split = Adw.OverlaySplitView(sidebar=side, content=view, sidebar_width_fraction=0.22, min_sidebar_width=180, max_sidebar_width=220)
+        toasts.set_child(split); win.set_content(toasts)
+
+        want = sys.argv[sys.argv.index("--page") + 1] if "--page" in sys.argv else "dashboard"
+        idx = next((i for i, p in enumerate(PAGES) if p[0] == want), 0)
+        sidebar.select_row(sidebar.get_row_at_index(idx))
+
         ctl = Gtk.ShortcutController()
-        ctl.add_shortcut(Gtk.Shortcut.new(Gtk.ShortcutTrigger.parse_string("Escape"),
-                                          Gtk.CallbackAction.new(lambda *_: (win.close(), True)[1])))
+        ctl.add_shortcut(Gtk.Shortcut.new(Gtk.ShortcutTrigger.parse_string("Escape"), Gtk.CallbackAction.new(lambda *_: (win.close(), True)[1])))
         win.add_controller(ctl)
+        win.connect("close-request", lambda *_: (GLib.source_remove(pages["dashboard"].tick_id) if pages["dashboard"].tick_id else None, False)[1])
         return win
 
 
