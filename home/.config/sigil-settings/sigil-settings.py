@@ -284,10 +284,9 @@ class DashboardPage(Adw.PreferencesPage):
 
 class SoundsPage(Adw.PreferencesPage):
     def __init__(self, toast, app):
-        super().__init__(title="Sounds", icon_name="audio-input-microphone-symbolic")
+        super().__init__(title="Key sounds", icon_name="input-keyboard-symbolic")
         self.toast = toast
         cfg = self.read_cfg()
-        self.audio_group()
         g = Adw.PreferencesGroup(title="Typewriter key sounds",
                                  description="Mechanical key clicks synthesised in the theme. Runs as a small daemon reading the keyboard.")
         self.enabled = Adw.SwitchRow(title="Key sounds", subtitle="Start or stop the daemon")
@@ -312,45 +311,6 @@ class SoundsPage(Adw.PreferencesPage):
                          ("Open folder", lambda: spawn(["xdg-open", os.path.join(KS, "packs")]), None)))
         g.add(button_row("Regenerate packs", "Re-synthesise the built-in packs from gen-sounds.py (a few seconds)",
                          ("Regenerate", self.regen, None)))
-        self.add(g)
-
-    # ── audio (wireplumber) ──
-    @staticmethod
-    def wp_nodes(kind):
-        """[(id, name, is_default)] for 'Sinks' or 'Sources' from `wpctl status`."""
-        out, nodes, grab = run(["wpctl", "status"]), [], False
-        for line in out.splitlines():
-            if re.search(rf"\b{kind}:", line):
-                grab = True; continue
-            if grab:
-                m = re.match(r"\s*[│|]?\s*(\*?)\s*(\d+)\.\s+(.*?)\s+\[vol:", line)
-                if m:
-                    nodes.append((int(m.group(2)), m.group(3).strip(), m.group(1) == "*"))
-                elif line.strip() in ("│", "") or "├─" in line:
-                    if nodes:
-                        break
-        return nodes
-
-    @staticmethod
-    def wp_vol(target):
-        m = re.search(r"Volume:\s*([\d.]+)(.*)", run(["wpctl", "get-volume", target]))
-        return (float(m.group(1)) * 100 if m else 0.0, bool(m and "MUTED" in m.group(2)))
-
-    def audio_group(self):
-        g = Adw.PreferencesGroup(title="Audio", description="Default devices and levels (wireplumber).")
-        for kind, target, title in (("Sinks", "@DEFAULT_AUDIO_SINK@", "Output"), ("Sources", "@DEFAULT_AUDIO_SOURCE@", "Input")):
-            nodes = self.wp_nodes(kind)
-            combo = Adw.ComboRow(title=title, subtitle="default device")
-            combo.set_model(Gtk.StringList.new([n[1] for n in nodes] or ["none"]))
-            cur = next((i for i, n in enumerate(nodes) if n[2]), 0); combo.set_selected(cur)
-            combo.connect("notify::selected", lambda r, _, ns=nodes: ns and (run(["wpctl", "set-default", str(ns[r.get_selected()][0])]), self.toast(f"Default: {ns[r.get_selected()][1]}")))
-            g.add(combo)
-            vol, muted = self.wp_vol(target)
-            row = scale_row(f"{title} volume", "muted" if muted else "", min(vol, 150), lambda v, t=target: run(["wpctl", "set-volume", t, f"{int(v)}%"]), lo=0, hi=150)
-            mute = Gtk.ToggleButton(icon_name="audio-volume-muted-symbolic" if title == "Output" else "microphone-disabled-symbolic", valign=Gtk.Align.CENTER, active=muted, tooltip_text="Mute")
-            mute.connect("toggled", lambda b, t=target, r=row: (run(["wpctl", "set-mute", t, "1" if b.get_active() else "0"]), r.set_subtitle("muted" if b.get_active() else "")))
-            row.add_suffix(mute); g.add(row)
-        g.add(button_row("Mixer", "per-app volumes, ports, profiles", ("Open pavucontrol", lambda: spawn(["pavucontrol"]), None)))
         self.add(g)
 
     @staticmethod
@@ -381,6 +341,52 @@ class SoundsPage(Adw.PreferencesPage):
             run(["python3", os.path.join(KS, "gen-sounds.py"), "--pack", p], timeout=120)
         run([KS_SH, "pack", self.packs[self.pack.get_selected()]])
         self.toast("Packs regenerated")
+
+
+class AudioPage(Adw.PreferencesPage):
+    def __init__(self, toast, app):
+        super().__init__(title="Audio", icon_name="audio-speakers-symbolic")
+        self.toast = toast
+        self.audio_group()
+
+    # ── audio (wireplumber) ──
+    @staticmethod
+    def wp_nodes(kind):
+        """[(id, name, is_default)] for 'Sinks' or 'Sources' from `wpctl status`."""
+        out, nodes, grab = run(["wpctl", "status"]), [], False
+        for line in out.splitlines():
+            if re.search(rf"\b{kind}:", line):
+                grab = True; continue
+            if grab:
+                m = re.match(r"\s*[│|]?\s*(\*?)\s*(\d+)\.\s+(.*?)\s+\[vol:", line)
+                if m:
+                    nodes.append((int(m.group(2)), m.group(3).strip(), m.group(1) == "*"))
+                elif line.strip() in ("│", "") or "├─" in line:
+                    if nodes:
+                        break
+        return nodes
+
+    @staticmethod
+    def wp_vol(target):
+        m = re.search(r"Volume:\s*([\d.]+)(.*)", run(["wpctl", "get-volume", target]))
+        return (float(m.group(1)) * 100 if m else 0.0, bool(m and "MUTED" in m.group(2)))
+
+    def audio_group(self):
+        g = Adw.PreferencesGroup(title="Devices and levels", description="Defaults from wireplumber; per-app control in the mixer.")
+        for kind, target, title in (("Sinks", "@DEFAULT_AUDIO_SINK@", "Output"), ("Sources", "@DEFAULT_AUDIO_SOURCE@", "Input")):
+            nodes = self.wp_nodes(kind)
+            combo = Adw.ComboRow(title=title, subtitle="default device")
+            combo.set_model(Gtk.StringList.new([n[1] for n in nodes] or ["none"]))
+            cur = next((i for i, n in enumerate(nodes) if n[2]), 0); combo.set_selected(cur)
+            combo.connect("notify::selected", lambda r, _, ns=nodes: ns and (run(["wpctl", "set-default", str(ns[r.get_selected()][0])]), self.toast(f"Default: {ns[r.get_selected()][1]}")))
+            g.add(combo)
+            vol, muted = self.wp_vol(target)
+            row = scale_row(f"{title} volume", "muted" if muted else "", min(vol, 150), lambda v, t=target: run(["wpctl", "set-volume", t, f"{int(v)}%"]), lo=0, hi=150)
+            mute = Gtk.ToggleButton(icon_name="audio-volume-muted-symbolic" if title == "Output" else "microphone-disabled-symbolic", valign=Gtk.Align.CENTER, active=muted, tooltip_text="Mute")
+            mute.connect("toggled", lambda b, t=target, r=row: (run(["wpctl", "set-mute", t, "1" if b.get_active() else "0"]), r.set_subtitle("muted" if b.get_active() else "")))
+            row.add_suffix(mute); g.add(row)
+        g.add(button_row("Mixer", "per-app volumes, ports, profiles", ("Open pavucontrol", lambda: spawn(["pavucontrol"]), None)))
+        self.add(g)
 
 
 class PowerPage(Adw.PreferencesPage):
@@ -676,7 +682,7 @@ class InputPage(Adw.PreferencesPage):
     """Keyboard / mouse / touchpad overrides written to ~/.config/hypr/local.lua (loaded with pcall, so a bad
     write can never take the session down). The main hyprland.lua is never touched."""
     def __init__(self, toast, app):
-        super().__init__(title="Input", icon_name="input-keyboard-symbolic")
+        super().__init__(title="Input", icon_name="input-mouse-symbolic")
         self.toast = toast
         v = self.current()
         g = Adw.PreferencesGroup(title="Keyboard", description="Layout stays in hyprland.lua (fr / azerty).")
@@ -740,10 +746,10 @@ class InputPage(Adw.PreferencesPage):
         run(["hyprctl", "reload"]); self.toast("local.lua removed, back to hyprland.lua defaults")
 
 
-class NetworkPage(Adw.PreferencesPage):
-    """Wi-Fi via nmcli, Bluetooth via bluetoothctl. Scans and connects run in threads."""
+class WifiPage(Adw.PreferencesPage):
+    """Wi-Fi via nmcli. Scans and connects run in threads."""
     def __init__(self, toast, app):
-        super().__init__(title="Network", icon_name="network-wireless-symbolic")
+        super().__init__(title="Wi-Fi", icon_name="network-wireless-symbolic")
         self.toast = toast
         self.wifi_dev = next((l.split(":")[0] for l in run(["nmcli", "-t", "-f", "DEVICE,TYPE", "dev"]).splitlines() if l.endswith(":wifi")), "wlan0")
 
@@ -761,19 +767,6 @@ class NetworkPage(Adw.PreferencesPage):
         self.add(self.wifi_group)
         self.scan_wifi()
 
-        g = Adw.PreferencesGroup(title="Bluetooth")
-        self.bt_sw = Adw.SwitchRow(title="Bluetooth", subtitle="adapter power")
-        self.bt_sw.set_active("Powered: yes" in run(["bluetoothctl", "show"]))
-        self.bt_sw.connect("notify::active", lambda r, _: (run(["bluetoothctl", "power", "on" if r.get_active() else "off"]),
-                                                            GLib.timeout_add(800, lambda: (self.list_bt(), False)[1])))
-        g.add(self.bt_sw); self.add(g)
-
-        self.bt_group = Adw.PreferencesGroup(title="Devices")
-        self.bt_scan_btn = Gtk.Button(label="Scan 8 s", valign=Gtk.Align.CENTER); self.bt_scan_btn.connect("clicked", lambda *_: self.scan_bt())
-        self.bt_group.set_header_suffix(self.bt_scan_btn)
-        self.bt_rows = []
-        self.add(self.bt_group)
-        self.list_bt()
 
     # ── wifi ──
     def scan_wifi(self, rescan=False):
@@ -824,6 +817,25 @@ class NetworkPage(Adw.PreferencesPage):
         self.toast("Working…")
         run_async(cmd, lambda out, rc: (self.toast(ok_msg if rc == 0 else out.splitlines()[-1][:90] if out else "failed"), self.scan_wifi()), timeout=45)
 
+class BluetoothPage(Adw.PreferencesPage):
+    """Bluetooth via bluetoothctl. Scans, pairing and connects run in threads."""
+    def __init__(self, toast, app):
+        super().__init__(title="Bluetooth", icon_name="bluetooth-symbolic")
+        self.toast = toast
+        g = Adw.PreferencesGroup(title="Bluetooth")
+        self.bt_sw = Adw.SwitchRow(title="Bluetooth", subtitle="adapter power")
+        self.bt_sw.set_active("Powered: yes" in run(["bluetoothctl", "show"]))
+        self.bt_sw.connect("notify::active", lambda r, _: (run(["bluetoothctl", "power", "on" if r.get_active() else "off"]),
+                                                            GLib.timeout_add(800, lambda: (self.list_bt(), False)[1])))
+        g.add(self.bt_sw); self.add(g)
+
+        self.bt_group = Adw.PreferencesGroup(title="Devices")
+        self.bt_scan_btn = Gtk.Button(label="Scan 8 s", valign=Gtk.Align.CENTER); self.bt_scan_btn.connect("clicked", lambda *_: self.scan_bt())
+        self.bt_group.set_header_suffix(self.bt_scan_btn)
+        self.bt_rows = []
+        self.add(self.bt_group)
+        self.list_bt()
+
     # ── bluetooth ──
     def list_bt(self):
         for r in self.bt_rows:
@@ -863,6 +875,7 @@ class NetworkPage(Adw.PreferencesPage):
         run_async(cmd, lambda out, rc: (self.toast(ok_msg if rc == 0 else (out.splitlines()[-1][:90] if out else "failed")), self.list_bt()), timeout=timeout)
 
 
+
 class AboutPage(Adw.PreferencesPage):
     KEYS = [("SUPER + T", "terminal"), ("SUPER + R", "launcher"), ("SUPER + E", "files"), ("SUPER + B", "browser"),
             ("SUPER + N", "control center"), ("SUPER + I", "this app"), ("SUPER + L", "lock"), ("SUPER + Q", "close window"),
@@ -898,11 +911,13 @@ class AboutPage(Adw.PreferencesPage):
 
 # ── application ───────────────────────────────────────────────────────────────
 PAGES = [("dashboard", "Dashboard", "utilities-system-monitor-symbolic", DashboardPage),
-         ("sounds", "Sounds", "audio-input-microphone-symbolic", SoundsPage),
+         ("wifi", "Wi-Fi", "network-wireless-symbolic", WifiPage),
+         ("bluetooth", "Bluetooth", "bluetooth-symbolic", BluetoothPage),
+         ("audio", "Audio", "audio-speakers-symbolic", AudioPage),
+         ("sounds", "Key sounds", "input-keyboard-symbolic", SoundsPage),
          ("power", "Power", "battery-symbolic", PowerPage),
          ("desktop", "Desktop", "preferences-desktop-wallpaper-symbolic", DesktopPage),
-         ("network", "Network", "network-wireless-symbolic", NetworkPage),
-         ("input", "Input", "input-keyboard-symbolic", InputPage),
+         ("input", "Input", "input-mouse-symbolic", InputPage),
          ("about", "About", "help-about-symbolic", AboutPage)]
 
 
