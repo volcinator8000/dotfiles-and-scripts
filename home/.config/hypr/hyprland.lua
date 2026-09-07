@@ -528,5 +528,9 @@ hl.layer_rule({ name = "blur-waybar", match = { namespace = "^waybar$" }, blur =
 hl.layer_rule({ name = "blur-rofi",   match = { namespace = "^rofi$" },   blur = true, ignore_alpha = 0.3 })
 hl.layer_rule({ name = "blur-swaync", match = { namespace = "^swaync-.*$" }, blur = true, ignore_alpha = 0.3 })
 
+-- hyprsunset (night light) + the animated CTM fade make NEW WINDOWS NEVER MAP
+-- (GTK4 clients spin at 100% CPU, verified 2026-09-07). Fade off = everything works.
+hl.config({ render = { ctm_animation = 0 } })
+
 -- machine-local overrides written by the settings app; errors there must never kill the session
 pcall(dofile, os.getenv("HOME") .. "/.config/hypr/local.lua")

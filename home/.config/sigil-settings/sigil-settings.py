@@ -714,8 +714,9 @@ class App(Adw.Application):
 
     def build(self):
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
-        prov = Gtk.CssProvider(); prov.load_from_string(CSS)
-        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        if not os.environ.get("SIGIL_NOCSS"):
+            prov = Gtk.CssProvider(); prov.load_from_string(CSS)
+            Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
         win = Adw.ApplicationWindow(application=self, title="SIGIL // SETTINGS", default_width=980, default_height=680)
         toasts = Adw.ToastOverlay()
@@ -723,13 +724,16 @@ class App(Adw.Application):
 
         stack = Adw.ViewStack()
         # build Power before Dashboard needs its caches: construct all, then add in order
+        only = os.environ.get("SIGIL_ONLY", "").split(",") if os.environ.get("SIGIL_ONLY") else None  # debug: build a subset
         pages = {}
         for name, title, icon, cls in PAGES:
-            if cls is not DashboardPage:
+            if cls is not DashboardPage and (not only or name in only):
                 pages[name] = cls(toast, self)
-        pages["dashboard"] = DashboardPage(toast, self)
+        if not only or "dashboard" in only:
+            pages["dashboard"] = DashboardPage(toast, self)
         for name, title, icon, cls in PAGES:
-            stack.add_titled_with_icon(pages[name], name, title, icon)
+            if name in pages:
+                stack.add_titled_with_icon(pages[name], name, title, icon)
 
         sidebar = Gtk.ListBox(); sidebar.add_css_class("navigation-sidebar"); sidebar.add_css_class("sigil-sidebar")
         sidebar.set_size_request(190, -1)
@@ -749,17 +753,21 @@ class App(Adw.Application):
 
         header = Adw.HeaderBar(); header.set_title_widget(title_lbl)
         view = Adw.ToolbarView(); view.add_top_bar(header); view.set_content(stack)
-        split = Adw.OverlaySplitView(sidebar=side, content=view, sidebar_width_fraction=0.22, min_sidebar_width=180, max_sidebar_width=220)
+        if os.environ.get("SIGIL_NOSPLIT"):
+            split = Gtk.Box(); split.append(side); split.append(view); view.set_hexpand(True)
+        else:
+            split = Adw.OverlaySplitView(sidebar=side, content=view, sidebar_width_fraction=0.22, min_sidebar_width=180, max_sidebar_width=220)
         toasts.set_child(split); win.set_content(toasts)
 
         want = sys.argv[sys.argv.index("--page") + 1] if "--page" in sys.argv else "dashboard"
-        idx = next((i for i, p in enumerate(PAGES) if p[0] == want), 0)
+        idx = next((i for i, p in enumerate(PAGES) if p[0] == want and p[0] in pages), next(i for i, p in enumerate(PAGES) if p[0] in pages))
         sidebar.select_row(sidebar.get_row_at_index(idx))
 
         ctl = Gtk.ShortcutController()
         ctl.add_shortcut(Gtk.Shortcut.new(Gtk.ShortcutTrigger.parse_string("Escape"), Gtk.CallbackAction.new(lambda *_: (win.close(), True)[1])))
         win.add_controller(ctl)
-        win.connect("close-request", lambda *_: (GLib.source_remove(pages["dashboard"].tick_id) if pages["dashboard"].tick_id else None, False)[1])
+        if "dashboard" in pages:
+            win.connect("close-request", lambda *_: (GLib.source_remove(pages["dashboard"].tick_id) if pages["dashboard"].tick_id else None, False)[1])
         return win
 
 
