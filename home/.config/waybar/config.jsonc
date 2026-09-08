@@ -68,7 +68,7 @@
         "format": "{title}",
         "format-paused": "<i>{title}</i>",
         "format-stopped": "",
-        "max-length": 70,
+        "max-length": 50,
         "interval": 1,
         "tooltip-format": "{artist} — {title}\n{album} · {player}",
         "on-click": "~/.config/keysound/keysound.sh play click; playerctl play-pause",
@@ -80,7 +80,7 @@
         "return-type": "json",
         "format": "{}",
         "interval": 1,
-        "max-length": 90,
+        "max-length": 120,
         "tooltip": true,
         "on-click": "~/.config/keysound/keysound.sh play click; playerctl play-pause"
     },

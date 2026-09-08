@@ -5,7 +5,7 @@ import json, os, re, subprocess, sys, hashlib, urllib.request, urllib.parse, htm
 
 CACHE = os.path.expanduser("~/.cache/waybar-lyrics")
 os.makedirs(CACHE, exist_ok=True)
-MAXLEN = 90
+MAXLEN = 120
 PLAYER = None  # None = playerctld / first player
 
 def out(text="", tooltip="", cls="none"):
