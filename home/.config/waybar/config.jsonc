@@ -7,6 +7,7 @@
     "spacing": 0,
 
     "modules-left":   ["custom/os_button", "custom/stats", "hyprland/window", "mpris", "custom/lyrics"],
+    "fixed-center": false,   // centre is empty: let the left group grow past the middle instead of being capped at half the bar
     "modules-center": [],
     "modules-right":  ["hyprland/workspaces", "tray", "custom/keepawake", "custom/updates", "clock", "custom/weather", "network", "custom/battery", "custom/notification", "custom/power"],
 
