@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Waybar module: current Spotify lyric line (synced via LRCLIB), full lyrics in tooltip."""
+"""Waybar module: current lyric line of whatever is playing (synced via LRCLIB), full lyrics in tooltip.
+Follows playerctld (the most recently active player); empty when nothing plays or no lyrics exist."""
 import json, os, re, subprocess, sys, hashlib, urllib.request, urllib.parse, html
 
 CACHE = os.path.expanduser("~/.cache/waybar-lyrics")
 os.makedirs(CACHE, exist_ok=True)
-MAXLEN = 52
-PLAYER = "spotify"
+MAXLEN = 90
+PLAYER = None  # None = playerctld / first player
 
 def out(text="", tooltip="", cls="none"):
     print(json.dumps({"text": text, "tooltip": tooltip, "class": cls, "alt": cls}))
@@ -13,7 +14,7 @@ def out(text="", tooltip="", cls="none"):
 
 def pc(*args):
     try:
-        return subprocess.run(["playerctl", "-p", PLAYER, *args], capture_output=True, text=True, timeout=2).stdout.strip()
+        return subprocess.run(["playerctl", *(["-p", PLAYER] if PLAYER else []), *args], capture_output=True, text=True, timeout=2).stdout.strip()
     except Exception:
         return ""
 

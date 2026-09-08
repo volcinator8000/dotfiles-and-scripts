@@ -65,26 +65,24 @@
         "on-click-right": "~/.config/keysound/keysound.sh play open; xdg-open https://wttr.in"
     },
     "mpris": {
-        "player": "spotify",
         "format": "{title}",
         "format-paused": "<i>{title}</i>",
         "format-stopped": "",
-        "max-length": 34,
+        "max-length": 70,
         "interval": 1,
-        "tooltip-format": "{artist} — {title}\n{album}",
-        "on-click": "~/.config/keysound/keysound.sh play click; playerctl -p spotify play-pause",
-        "on-scroll-up": "playerctl -p spotify next",
-        "on-scroll-down": "playerctl -p spotify previous"
+        "tooltip-format": "{artist} — {title}\n{album} · {player}",
+        "on-click": "~/.config/keysound/keysound.sh play click; playerctl play-pause",
+        "on-scroll-up": "playerctl next",
+        "on-scroll-down": "playerctl previous"
     },
     "custom/lyrics": {
         "exec": "~/.config/waybar/scripts/lyrics.py",
         "return-type": "json",
         "format": "{}",
         "interval": 1,
-        "max-length": 52,
-        "min-length": 52,
+        "max-length": 90,
         "tooltip": true,
-        "on-click": "~/.config/keysound/keysound.sh play click; playerctl -p spotify play-pause"
+        "on-click": "~/.config/keysound/keysound.sh play click; playerctl play-pause"
     },
     "hyprland/window": {
         "format": "{title}",
