@@ -8,7 +8,7 @@
 
     "modules-left":   ["custom/os_button", "custom/stats", "hyprland/window", "mpris", "custom/lyrics"],
     "modules-center": [],
-    "modules-right":  ["hyprland/workspaces", "tray", "clock", "custom/weather", "network", "custom/battery", "custom/notification", "custom/power", "custom/keepawake", "custom/updates"],
+    "modules-right":  ["hyprland/workspaces", "tray", "custom/keepawake", "custom/updates", "clock", "custom/weather", "network", "custom/battery", "custom/notification", "custom/power"],
 
     // ── left: launcher + system stats ──────────────────────────
     "custom/os_button": {
