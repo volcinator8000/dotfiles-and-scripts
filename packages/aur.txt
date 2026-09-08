@@ -1,3 +1,5 @@
 # AUR (paru)
 catppuccin-cursors-mocha
 hyprexpose-git
+# boot into btrfs snapshots from rEFInd (in the cachyos repo, AUR elsewhere); needs the manual stanza from system/boot/refind-stanza.conf
+refind-btrfs
