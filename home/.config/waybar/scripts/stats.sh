@@ -18,7 +18,7 @@ tcol="#ff5a1f"; (( temp >= 85 )) && tcol="#ff2d3a"
 # gpu: reuse gpu.sh (runtime-PM safe); its text is the icon, tooltip has the detail
 gj=$(~/.config/waybar/scripts/gpu.sh 2>/dev/null)
 gtxt=$(printf '%s' "$gj" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('text',''))" 2>/dev/null)
-gtip=$(printf '%s' "$gj" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('tooltip','').replace(chr(10), '\\n'))" 2>/dev/null)
+gtip=$(printf '%s' "$gj" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('tooltip','').replace(chr(10), chr(92)+'n'))" 2>/dev/null)
 gcls=$(printf '%s' "$gj" | python3 -c "import json,sys; print(json.load(sys.stdin).get('class',''))" 2>/dev/null)
 gcol="#39ff14"; [[ "$gcls" == *dgpu* ]] && gcol="#ff5cc8"; [[ "$gcls" == *critical* ]] && gcol="#ff2d3a"
 ccol="#3ae0ff"; (( cpu >= 85 )) && ccol="#ffb000"; mcol="#a64dff"; (( mem >= 90 )) && mcol="#ffb000"
