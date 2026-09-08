@@ -825,10 +825,10 @@ class WifiPage(Adw.PreferencesPage):
                                                               GLib.timeout_add(1500, lambda: (self.scan_wifi(), False)[1])))
         g.add(self.wifi_sw); self.add(g)
 
-        g = Adw.PreferencesGroup(title="Remote access", description="SSH server for phones and other devices on the same network.")
-        self.ssh_row = Adw.ActionRow(title="SSH", subtitle=self.ssh_status())
-        b = Gtk.Button(label="Copy address", valign=Gtk.Align.CENTER); b.connect("clicked", lambda *_: self.copy_ssh()); self.ssh_row.add_suffix(b)
-        g.add(self.ssh_row); self.add(g)
+        g = Adw.PreferencesGroup(title="Remote access", description="Tailscale: private network between your devices, works from anywhere; SSH goes over it.")
+        self.ts_row = Adw.ActionRow(title="Tailscale", subtitle=self.ts_status())
+        b = Gtk.Button(label="Copy ssh command", valign=Gtk.Align.CENTER); b.connect("clicked", lambda *_: self.copy_ts()); self.ts_row.add_suffix(b)
+        g.add(self.ts_row); self.add(g)
 
         self.wifi_group = Adw.PreferencesGroup(title="Networks")
         b = Gtk.Button(label="Rescan", valign=Gtk.Align.CENTER); b.connect("clicked", lambda *_: self.scan_wifi(rescan=True))
@@ -839,24 +839,37 @@ class WifiPage(Adw.PreferencesPage):
 
 
     def refresh(self):
-        self.ssh_row.set_subtitle(self.ssh_status()); self.scan_wifi()
+        self.ts_row.set_subtitle(self.ts_status()); self.scan_wifi()
 
     @staticmethod
-    def ssh_addr():
-        ip = next((l.split()[2].split("/")[0] for l in run(["ip", "-4", "-br", "addr"]).splitlines() if l.split() and l.split()[1] == "UP"), "")
-        return f"{os.environ.get('USER', 'kali')}@{ip}" if ip else ""
+    def ts_info():
+        """(state, ip, magicdns name, peer count) from tailscale; state '' when not installed/running"""
+        raw = run(["tailscale", "status", "--json"], timeout=4)
+        try:
+            d = json.loads(raw)
+        except ValueError:
+            return ("", "", "", 0)
+        me = d.get("Self", {}) or {}
+        ip = next((a for a in me.get("TailscaleIPs", []) if "." in a), "")
+        name = (me.get("DNSName") or "").rstrip(".")
+        online = sum(1 for p in (d.get("Peer") or {}).values() if p.get("Online"))
+        return (d.get("BackendState", ""), ip, name, online)
 
-    def ssh_status(self):
-        active = run(["systemctl", "is-active", "sshd"]) == "active"
-        addr = self.ssh_addr()
-        keys = sum(1 for l in read(os.path.join(HOME, ".ssh", "authorized_keys")).splitlines() if l.strip() and not l.startswith("#"))
-        return (f"running · ssh {addr} · {keys} authorised key(s)" if active else "server not running (sudo systemctl enable --now sshd)") + \
-               (f" · also {run(['uname', '-n'])}.local" if run(["systemctl", "is-active", "avahi-daemon"]) == "active" else "")
+    def ts_status(self):
+        st, ip, name, online = self.ts_info()
+        if not st:
+            return "not installed or not running (sudo pacman -S tailscale; sudo systemctl enable --now tailscaled; sudo tailscale up --ssh)"
+        if st != "Running":
+            return f"{st.lower()} · run: sudo tailscale up --ssh"
+        return f"connected · {ip}" + (f" · {name.split('.')[0]}" if name else "") + f" · {online} other device(s) online"
 
-    def copy_ssh(self):
-        a = self.ssh_addr()
-        if a:
-            subprocess.run(["wl-copy"], input=f"ssh {a}", text=True); self.toast(f"Copied: ssh {a}")
+    def copy_ts(self):
+        st, ip, name, _ = self.ts_info()
+        target = name.split(".")[0] if name else ip
+        if target:
+            subprocess.run(["wl-copy"], input=f"ssh {os.environ.get('USER', 'kali')}@{target}", text=True); self.toast(f"Copied: ssh kali@{target}")
+        else:
+            self.toast("Tailscale is not connected")
 
     # ── wifi ──
     def scan_wifi(self, rescan=False):

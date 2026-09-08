@@ -4,3 +4,5 @@ slack-desktop
 spotify
 zen-browser-bin
 ani-cli-git
+# remote access from anywhere (settings app shows its status): sudo systemctl enable --now tailscaled; sudo tailscale up --ssh
+tailscale

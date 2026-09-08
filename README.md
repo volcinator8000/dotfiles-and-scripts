@@ -32,7 +32,7 @@ Flags: `--skip-packages` `--skip-system` `--apps` (Discord/Slack/Spotify/Zen)
 | `home/.zshrc`, `starship.toml` | zsh + oh-my-zsh + starship two-line prompt + macchina fetch |
 | `scripts/bin/` | `dirprep` (Epitech C project scaffold), `mirmon` (mirror HDMI), `pt` (add/commit/push) → linked into `~/.local/bin` |
 | `scripts/setup/` | one-off setup scripts: hibernation, dGPU wakeup fix, zsh rice, wallpaper generator |
-| `system/etc/` | lid/hibernate logind+sleep drop-ins, power-key handling, power sysctl, wifi powersave, dGPU no-wakeup udev rule, spicetify pacman hook, sshd hardening (`ssh/sshd_config.d/10-sigil.conf`; enable with `systemctl enable --now sshd`, open with `ufw limit ssh`) |
+| `system/etc/` | lid/hibernate logind+sleep drop-ins, power-key handling, power sysctl, wifi powersave, dGPU no-wakeup udev rule, spicetify pacman hook |
 | `system/boot/refind-stanza.conf` | manual rEFInd stanza (append to `/boot/EFI/refind/refind.conf`) that refind-btrfs clones per snapshot; `system/etc/refind-btrfs.conf` pins the ESP |
 | `system/reference/` | copies of mkinitcpio.conf / pacman.conf / snapper config, for reading only |
 | `packages/` | `pacman.txt` (official), `aur.txt`, `apps.txt` |
