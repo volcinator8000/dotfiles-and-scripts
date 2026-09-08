@@ -363,6 +363,7 @@ hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd("loginctl lock-session"), { lock
 local mainMod = "SUPER" -- Sets "Windows" key as main modifier
 
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("loginctl lock-session"))
+hl.bind("XF86PowerOff", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play open; wlogout"), { locked = true }) -- power button: menu, not poweroff (logind HandlePowerKey=ignore)
 hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play open; swaync-client -t -sw"))
 hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("~/.config/rofi/clip.sh")) -- clipboard history
 hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play open; rofi -show emoji")) -- emoji picker (rofi-emoji)
