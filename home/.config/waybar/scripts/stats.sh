@@ -13,7 +13,7 @@ read -r dsize dused dfree dpct < <(df -h --output=size,used,avail,pcent / | tail
 # temp: k10temp (cpu die) if present, else thermal zone 0
 tp=""; for h in /sys/class/hwmon/hwmon*; do [[ "$(cat "$h/name" 2>/dev/null)" == k10temp ]] && tp="$h/temp1_input" && break; done
 [[ -z "$tp" ]] && tp=/sys/class/thermal/thermal_zone0/temp; temp=$(( $(cat "$tp" 2>/dev/null || echo 0) / 1000 ))
-ticon=""; (( temp >= 70 )) && ticon=""; (( temp >= 85 )) && ticon=""
+ticon=$(printf '\U000F050F'); (( temp >= 85 )) && ticon=$(printf '\U000F0E01')
 tcol="#ff5a1f"; (( temp >= 85 )) && tcol="#ff2d3a"
 # gpu: reuse gpu.sh (runtime-PM safe); its text is the icon, tooltip has the detail
 gj=$(~/.config/waybar/scripts/gpu.sh 2>/dev/null)
