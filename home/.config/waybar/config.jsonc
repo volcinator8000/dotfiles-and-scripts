@@ -7,8 +7,8 @@
     "spacing": 0,
 
     "modules-left":   ["custom/os_button", "custom/stats", "hyprland/window"],
-    "modules-center": ["hyprland/workspaces", "clock", "custom/weather", "mpris", "custom/lyrics"],
-    "modules-right":  ["custom/updates", "tray", "network", "power-profiles-daemon", "custom/battery", "custom/keepawake", "custom/control", "custom/notification", "custom/power"],
+    "modules-center": ["hyprland/workspaces", "clock", "mpris", "custom/lyrics"],
+    "modules-right":  ["custom/updates", "tray", "network", "power-profiles-daemon", "custom/battery", "custom/keepawake", "custom/weather", "custom/notification", "custom/power"],
 
     // ── left: launcher + system stats ──────────────────────────
     "custom/os_button": {
@@ -143,12 +143,6 @@
         "format": "{}",
         "tooltip-format": "keep awake: idle lock/sleep inhibited\nclick to release",
         "on-click": "~/.config/keysound/keysound.sh play click; ~/.config/swaync/keepawake.sh off"
-    },
-    "custom/control": {
-        "format": "󰕮",
-        "tooltip-format": "control center",
-        "on-click": "~/.config/keysound/keysound.sh play open; swaync-client -t -sw",
-        "on-click-right": "~/.config/keysound/keysound.sh play click; swaync-client -d -sw"
     },
     "custom/notification": {
         "tooltip": false,
