@@ -6,8 +6,8 @@
     "height": 40,
     "spacing": 0,
 
-    "modules-left":   ["custom/os_button", "cpu", "memory", "custom/gpu", "disk", "temperature", "hyprland/window"],
-    "modules-center": ["hyprland/workspaces", "clock", "mpris", "custom/lyrics"],
+    "modules-left":   ["custom/os_button", "custom/stats", "hyprland/window"],
+    "modules-center": ["hyprland/workspaces", "clock", "custom/weather", "mpris", "custom/lyrics"],
     "modules-right":  ["custom/updates", "tray", "network", "power-profiles-daemon", "custom/battery", "custom/keepawake", "custom/control", "custom/notification", "custom/power"],
 
     // ── left: launcher + system stats ──────────────────────────
@@ -17,40 +17,13 @@
         "on-click": "~/.config/keysound/keysound.sh play click; rofi -show drun",
         "on-click-right": "~/.config/keysound/keysound.sh play click; python3 ~/.config/sigil-settings/sigil-settings.py"
     },
-    "cpu": {
-        "interval": 5,
-        "format": "󰻠 {usage}%",
-        "tooltip-format": "load {load}",
-        "on-click": "~/.config/keysound/keysound.sh play click; kitty -e btop"
-    },
-    "memory": {
-        "interval": 10,
-        "format": "󰍛 {percentage}%",
-        "tooltip-format": "{used:0.1f} / {total:0.1f} GiB",
-        "on-click": "~/.config/keysound/keysound.sh play click; kitty -e btop"
-    },
-    "custom/gpu": {
-        "exec": "~/.config/waybar/scripts/gpu.sh",
+    "custom/stats": {
+        "exec": "~/.config/waybar/scripts/stats.sh",
         "return-type": "json",
-        "format": "{}",
         "interval": 3,
+        "format": "{}",
         "tooltip": true,
-        "on-click": "~/.config/keysound/keysound.sh play click; kitty -e btop"
-    },
-    "disk": {
-        "interval": 60,
-        "format": "󰋊 {percentage_used}%",
-        "path": "/",
-        "tooltip-format": "{used} used · {free} free on {path}",
-        "on-click": "~/.config/keysound/keysound.sh play click; kitty -e btop"
-    },
-    "temperature": {
-        "interval": 5,
-        "critical-threshold": 85,
-        "format": "{icon} {temperatureC}°",
-        "format-icons": ["", "", ""],
-        "tooltip": false,
-        "on-click": "~/.config/keysound/keysound.sh play click; kitty -e btop"
+        "on-click": "~/.config/keysound/keysound.sh play click; python3 ~/.config/sigil-settings/sigil-settings.py --page dashboard"
     },
 
     // ── center: workspaces · clock · window title ──────────────
@@ -81,15 +54,22 @@
         },
         "actions": { "on-click-right": "~/.config/keysound/keysound.sh play click; mode", "on-scroll-up": "shift_up", "on-scroll-down": "shift_down" }
     },
+    "custom/weather": {
+        "exec": "~/.config/waybar/scripts/weather.py",
+        "return-type": "json",
+        "interval": 900,
+        "signal": 11,
+        "format": "{}",
+        "tooltip": true,
+        "on-click": "~/.config/keysound/keysound.sh play click; ~/.config/waybar/scripts/weather.py --refresh >/dev/null; pkill -RTMIN+11 -x waybar",
+        "on-click-right": "~/.config/keysound/keysound.sh play open; xdg-open https://wttr.in"
+    },
     "mpris": {
         "player": "spotify",
-        "format": "{player_icon} {title}",
-        "format-paused": "{status_icon} <i>{title}</i>",
+        "format": "{title}",
+        "format-paused": "<i>{title}</i>",
         "format-stopped": "",
-        "player-icons": { "default": "󰐊", "spotify": "" },
-        "status-icons": { "paused": "󰏤" },
-        "max-length": 16,
-        "min-length": 16,
+        "max-length": 34,
         "interval": 1,
         "tooltip-format": "{artist} — {title}\n{album}",
         "on-click": "~/.config/keysound/keysound.sh play click; playerctl -p spotify play-pause",

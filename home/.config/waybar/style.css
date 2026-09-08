@@ -52,11 +52,12 @@ tooltip label { color: @text; }
 /* ── left ──────────────────────────────────────────────────── */
 #custom-os_button { color: @blue; font-size: 18px; padding: 0 14px; }
 #custom-os_button:hover { text-shadow: 0 0 8px alpha(@blue, 0.8); }
-#cpu         { color: @blue; }
-#memory      { color: @purple; }
-#disk        { color: @pink; }
-#temperature { color: @orange; }
-#temperature.critical { color: @red; animation: blink 0.6s linear infinite alternate; }
+#custom-stats { color: @text; }
+#custom-stats.critical { animation: blink 0.6s linear infinite alternate; }
+#custom-weather { color: @amber; }
+#custom-weather.rain { color: @blue; }
+#custom-weather.night { color: @purple; }
+#custom-weather.stale { color: @muted; }
 
 /* ── center ────────────────────────────────────────────────── */
 #workspaces { padding: 0 6px; }
@@ -136,9 +137,6 @@ tooltip label { color: @text; }
 @keyframes blink { to { background-color: @red; color: @base; } }
 
 /* gpu + power profile */
-#custom-gpu          { color: @green; }
-#custom-gpu.dgpu     { color: @pink; }
-#custom-gpu.critical { color: @red; }
 #power-profiles-daemon                { color: @muted; font-size: 15px; }
 #power-profiles-daemon.performance    { color: @orange; }
 #power-profiles-daemon.balanced       { color: @amber; }
