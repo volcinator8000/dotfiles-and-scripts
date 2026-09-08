@@ -23,7 +23,10 @@ gcls=$(printf '%s' "$gj" | python3 -c "import json,sys; print(json.load(sys.stdi
 gcol="#39ff14"; [[ "$gcls" == *dgpu* ]] && gcol="#ff5cc8"; [[ "$gcls" == *critical* ]] && gcol="#ff2d3a"
 ccol="#3ae0ff"; (( cpu >= 85 )) && ccol="#ffb000"; mcol="#a64dff"; (( mem >= 90 )) && mcol="#ffb000"
 esc() { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
-text="<span color='$ccol'>󰻠 ${cpu}%</span>  <span color='$mcol'>󰍛 ${mem}%</span>  <span color='$gcol'>$(esc "$gtxt")</span>  <span color='#ff5cc8'>󰋊 ${dpct}%</span>  <span color='$tcol'>$ticon ${temp}°</span>"
+# fixed-width numbers (monospace bar font): every value padded to 3 columns so 7% and 100% take the same space
+gicon="${gtxt%% *}"; gnum="${gtxt##* }"; gnum="${gnum%\%}"; [[ "$gnum" =~ ^[0-9]+$ ]] || gnum=""
+gcell="$(esc "$gicon") $(printf '%3s' "$gnum")%"; [[ -z "$gnum" ]] && gcell="$(esc "$gicon")     "
+text="<span color='$ccol'>󰻠 $(printf '%3d' "$cpu")%</span>  <span color='$mcol'>󰍛 $(printf '%3d' "$mem")%</span>  <span color='$gcol'>$gcell</span>  <span color='#ff5cc8'>󰋊 $(printf '%3d' "$dpct")%</span>  <span color='$tcol'>$ticon $(printf '%3d' "$temp")°</span>"
 tip="cpu ${cpu}%  ·  load $l1 $l5 $l15\nmemory $memg\n$(esc "$gtip")\ndisk $dused used · $dfree free of $dsize\ncpu temp ${temp}°C"
 cls="ok"; (( temp >= 85 || cpu >= 95 )) && cls="critical"
 printf '{"text":"%s","tooltip":"%s","class":"%s"}\n' "$text" "$tip" "$cls"
