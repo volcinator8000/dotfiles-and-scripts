@@ -825,6 +825,11 @@ class WifiPage(Adw.PreferencesPage):
                                                               GLib.timeout_add(1500, lambda: (self.scan_wifi(), False)[1])))
         g.add(self.wifi_sw); self.add(g)
 
+        g = Adw.PreferencesGroup(title="Remote access", description="SSH server for phones and other devices on the same network.")
+        self.ssh_row = Adw.ActionRow(title="SSH", subtitle=self.ssh_status())
+        b = Gtk.Button(label="Copy address", valign=Gtk.Align.CENTER); b.connect("clicked", lambda *_: self.copy_ssh()); self.ssh_row.add_suffix(b)
+        g.add(self.ssh_row); self.add(g)
+
         self.wifi_group = Adw.PreferencesGroup(title="Networks")
         b = Gtk.Button(label="Rescan", valign=Gtk.Align.CENTER); b.connect("clicked", lambda *_: self.scan_wifi(rescan=True))
         self.wifi_group.set_header_suffix(b)
@@ -834,7 +839,24 @@ class WifiPage(Adw.PreferencesPage):
 
 
     def refresh(self):
-        self.scan_wifi()
+        self.ssh_row.set_subtitle(self.ssh_status()); self.scan_wifi()
+
+    @staticmethod
+    def ssh_addr():
+        ip = next((l.split()[2].split("/")[0] for l in run(["ip", "-4", "-br", "addr"]).splitlines() if l.split() and l.split()[1] == "UP"), "")
+        return f"{os.environ.get('USER', 'kali')}@{ip}" if ip else ""
+
+    def ssh_status(self):
+        active = run(["systemctl", "is-active", "sshd"]) == "active"
+        addr = self.ssh_addr()
+        keys = sum(1 for l in read(os.path.join(HOME, ".ssh", "authorized_keys")).splitlines() if l.strip() and not l.startswith("#"))
+        return (f"running · ssh {addr} · {keys} authorised key(s)" if active else "server not running (sudo systemctl enable --now sshd)") + \
+               (f" · also {run(['uname', '-n'])}.local" if run(["systemctl", "is-active", "avahi-daemon"]) == "active" else "")
+
+    def copy_ssh(self):
+        a = self.ssh_addr()
+        if a:
+            subprocess.run(["wl-copy"], input=f"ssh {a}", text=True); self.toast(f"Copied: ssh {a}")
 
     # ── wifi ──
     def scan_wifi(self, rescan=False):
