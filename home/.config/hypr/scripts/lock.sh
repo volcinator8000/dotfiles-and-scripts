@@ -4,7 +4,8 @@
 # startup before ever locking (all threads parked in futex_wait, zero CPU) and that ghost blocks every later lock
 # through the "already running" check. Such a ghost is detected by three consecutive idle samples and removed.
 KS=~/.config/keysound/keysound.sh; RT="${XDG_RUNTIME_DIR:-/tmp}"; AT="$RT/locked-at"
-if P=$(pgrep -x hyprlock | head -1); then
+P=$(pgrep -x hyprlock | head -1)
+if [ -n "$P" ]; then
     idle=0
     for _ in 1 2 3; do
         a=$(awk '{print $14+$15}' /proc/$P/stat 2>/dev/null) || break; w=$(cat /proc/$P/wchan 2>/dev/null); sleep 1
