@@ -102,6 +102,7 @@ LINK_FILES=(
     .local/share/color-schemes/Cybersigil.colors
     .local/share/applications/sigil-settings.desktop
     .config/systemd/user/dots-sync.service .config/systemd/user/dots-sync.timer
+    .config/systemd/user/swaync-watchdog.service .config/systemd/user/swaync-watchdog.timer
     .config/spicetify/Themes/Cybersigil
     Pictures/Wallpapers/cybersigil.png
 )
@@ -166,7 +167,7 @@ ZC="$HOME/.oh-my-zsh/custom/plugins"
 run mkdir -p "$HOME/Pictures/Screenshots" "$HOME/.cache/nowplaying"
 say "weekly dotfiles sync timer"
 run systemctl --user daemon-reload 2>/dev/null || true
-run systemctl --user enable --now dots-sync.timer 2>/dev/null || warn "could not enable dots-sync.timer (no user session bus?)"
+run systemctl --user enable --now dots-sync.timer swaync-watchdog.timer 2>/dev/null || warn "could not enable dots-sync.timer (no user session bus?)"
 if [[ ! -x "$HOME/.spicetify/spicetify" ]] && command -v spotify >/dev/null; then
     say "spicetify (user install, themes Spotify); apply needs: sudo chmod a+wr -R /opt/spotify && spicetify backup apply"
     run sh -c "$(curl -fsSL https://raw.githubusercontent.com/spicetify/cli/main/install.sh)" </dev/null >/dev/null 2>&1 || warn "spicetify install failed"
