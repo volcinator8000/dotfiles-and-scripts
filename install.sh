@@ -151,7 +151,7 @@ fixpath home/.config/qt6ct/qt6ct.conf    "s|color_scheme_path=.*/.config/qt6ct/|
 
 # ── 4. generated bits ────────────────────────────────────────────────────────
 say "generating key-sound packs"
-for p in cybersigil animalese; do run python3 home/.config/keysound/gen-sounds.py --pack "$p" >/dev/null; done
+for p in cybersigil animalese frog; do run python3 home/.config/keysound/gen-sounds.py --pack "$p" >/dev/null; done
 grep -q '^pack=' home/.config/keysound/config || echo "pack=cybersigil" >> home/.config/keysound/config
 say "font cache / desktop database / zsh plugins"
 run fc-cache -f >/dev/null

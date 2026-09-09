@@ -374,7 +374,7 @@ class SoundsPage(Adw.PreferencesPage):
 
     @staticmethod
     def pretty(name):
-        return {"cybersigil": "Cybersigil (typewriter)", "animalese": "Animalese (Animal Crossing)"}.get(name, name.replace("-", " ").title())
+        return {"cybersigil": "Cybersigil (typewriter)", "animalese": "Animalese (Animal Crossing)", "frog": "Frog (croaks and pond plops)"}.get(name, name.replace("-", " ").title())
 
     @staticmethod
     def read_cfg():
@@ -393,7 +393,7 @@ class SoundsPage(Adw.PreferencesPage):
         run([KS_SH, "pack", name]); self.toast(f"Pack: {self.pretty(name)}")
 
     def regen(self):
-        for p in ("cybersigil", "animalese"):
+        for p in ("cybersigil", "animalese", "frog"):
             run(["python3", os.path.join(KS, "gen-sounds.py"), "--pack", p], timeout=120)
         run([KS_SH, "pack", self.packs[self.pack.get_selected()]])
         self.toast("Packs regenerated")

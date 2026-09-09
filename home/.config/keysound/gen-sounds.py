@@ -62,6 +62,58 @@ def clack(len_ms=38, tone=2600, tone_gain=0.35, body=140, body_gain=0.5, crush=0
     return bitcrush(x, crush) if crush else x
 
 
+def frog():
+    """Frog pack: croaks are a pulse train (a 'glottal' click every few ms) ringing a low formant;
+    plops are fast downward sine sweeps like something dropping into a pond."""
+    def ring(n, f, tau):  # damped resonance
+        return [math.sin(2 * math.pi * f * i / SR) * math.exp(-i / (tau * SR)) for i in range(n)]
+    def croak(ms, p0, p1, formant=480, tau=0.006, grit=0.25, decay=0.10):
+        n = int(SR * ms / 1000); out = [0.0] * n
+        t = 0.0; i = 0
+        while i < n:
+            period = SR / (p0 + (p1 - p0) * (i / n))   # pulse rate glides p0 -> p1 Hz
+            r = ring(int(SR * tau * 6), formant + random.uniform(-25, 25), tau)
+            for j, v in enumerate(r):
+                if i + j < n: out[i + j] += v
+            i += int(period)
+        env = [min(1.0, k / (SR * 0.012)) * math.exp(-max(0, k - n * 0.55) / (decay * SR)) for k in range(n)]
+        body = mul(lowpass(out, 1800), env)
+        return fade_out(mix(body, scale(mul(lowpass(noise(n), 900), env), grit * 0.15)), 15)
+    def plop(ms=70, f0=900, f1=180, tau=0.03):
+        n = int(SR * ms / 1000)
+        sw = mul(sine(n, f0, f1), env_exp(n, tau))
+        tick = mul(lowpass(noise(int(SR * 0.008)), 3000), env_exp(int(SR * 0.008), 0.002))
+        return fade_out(mix(sw, scale(tick, 0.35)), 12)
+    def chirp(ms, f0, f1, tau=0.05):  # the 'bit' of a ribbit
+        n = int(SR * ms / 1000)
+        return fade_out(mul(lowpass(sine(n, f0, f1), 4000), env_exp(n, tau)), 12)
+    gap = lambda ms: [0.0] * int(SR * ms / 1000)
+    ribbit = lambda: croak(85, 38, 70, formant=460) + gap(15) + chirp(90, 650, 1250)
+    # keys: four short croaklets with different pulse rates / formants
+    for i, (p0, p1, fm) in enumerate(((45, 80, 520), (40, 72, 470), (52, 90, 560), (36, 66, 430))):
+        write(f"key{i}.wav", croak(55, p0, p1, formant=fm, decay=0.05), 0.42)
+    write("space.wav", croak(95, 28, 50, formant=380, decay=0.09), 0.45)
+    write("backspace.wav", plop(60, 700, 220), 0.4)
+    write("mod.wav", chirp(45, 900, 1300, tau=0.02), 0.3)
+    write("enter.wav", ribbit(), 0.5)
+    write("hold.wav", croak(260, 30, 95, formant=440, decay=0.12), 0.45)
+    write("release.wav", plop(55, 600, 200, tau=0.02), 0.3)
+    # system events
+    write("notify.wav", ribbit(), 0.45)
+    write("notify-urgent.wav", croak(80, 40, 75) + gap(40) + croak(80, 40, 75) + gap(40) + ribbit(), 0.5)
+    write("lock.wav", croak(120, 60, 24, formant=420, decay=0.14) + gap(30) + plop(90, 500, 120, tau=0.05), 0.45)
+    write("unlock.wav", plop(70, 300, 900, tau=0.04) + gap(30) + chirp(120, 600, 1400, tau=0.07), 0.45)
+    write("shutter.wav", plop(80, 1100, 220, tau=0.03), 0.5)
+    write("plug.wav", croak(60, 40, 70) + gap(20) + chirp(100, 500, 1300), 0.42)
+    write("unplug.wav", chirp(60, 1300, 500) + gap(20) + croak(90, 60, 30, formant=400), 0.42)
+    write("batt-low.wav", croak(300, 22, 40, formant=340, decay=0.25) + gap(200) + croak(360, 20, 34, formant=320, decay=0.3), 0.45)
+    # ui
+    write("click.wav", plop(35, 1200, 500, tau=0.012), 0.28)
+    write("toggle-on.wav", plop(40, 500, 1100, tau=0.015) + gap(10) + chirp(50, 1100, 1500, tau=0.02), 0.3)
+    write("toggle-off.wav", chirp(40, 1300, 900, tau=0.015) + gap(10) + plop(50, 800, 300, tau=0.02), 0.3)
+    write("open.wav", plop(50, 400, 1000, tau=0.025) + gap(15) + chirp(70, 900, 1300, tau=0.03), 0.3)
+    write("close.wav", chirp(50, 1200, 800, tau=0.02) + gap(15) + plop(80, 700, 200, tau=0.035), 0.3)
+
 def animalese():
     """Animal Crossing style 'Animalese': short vowel-like blips, random pitch on a small scale."""
     def vowel(n, f0, formants, gain=1.0):
@@ -118,6 +170,8 @@ def animalese():
 
 if PACK == "animalese":
     animalese()
+elif PACK == "frog":
+    frog()
 else:
     # ── key variants (pitch variation is applied at playback by picking one of 4 files) ──
     for i in range(4):
