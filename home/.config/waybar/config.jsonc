@@ -21,11 +21,9 @@
     "custom/stats": {
         "exec": "~/.config/waybar/scripts/stats.sh",
         "return-type": "json",
-        "interval": 3,
         "format": "{}",
         "tooltip": true,
-        "on-click": "~/.config/keysound/keysound.sh play click; python3 ~/.config/sigil-settings/sigil-settings.py --page dashboard"
-    },
+        "on-click": "~/.config/keysound/keysound.sh play click; python3 ~/.config/sigil-settings/sigil-settings.py --page dashboard"    },
 
     // ── center: workspaces · clock · window title ──────────────
     "hyprland/workspaces": {
@@ -80,11 +78,9 @@
         "exec": "~/.config/waybar/scripts/lyrics.py",
         "return-type": "json",
         "format": "{}",
-        "interval": 1,
         "max-length": 120,
         "tooltip": true,
-        "on-click": "~/.config/keysound/keysound.sh play click; playerctl play-pause"
-    },
+        "on-click": "~/.config/keysound/keysound.sh play click; playerctl play-pause"    },
     "hyprland/window": {
         "format": "{title}",
         "max-length": 24,
