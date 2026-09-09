@@ -58,7 +58,7 @@ def state():
 
 def hs(*args):
     if not subprocess.run(["pgrep", "-x", "hyprsunset"], capture_output=True).stdout:
-        subprocess.Popen(["hyprsunset"], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(["hyprsunset"], start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(0.5)
     if args:
         subprocess.run(["hyprctl", "hyprsunset", *map(str, args)], capture_output=True)

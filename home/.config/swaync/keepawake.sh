@@ -3,7 +3,7 @@
 running() { pgrep -f "systemd-inhibit.*SwayNC" >/dev/null; }
 case "${1:-toggle}" in
     state)  running && echo true || echo false; exit 0 ;;
-    on)     running || systemd-inhibit --what=idle --who="SwayNC" --why="User requested Keep Awake" sleep infinity >/dev/null 2>&1 & ;;
+    on)     running || setsid -f systemd-inhibit --what=idle --who="SwayNC" --why="User requested Keep Awake" sleep infinity </dev/null >/dev/null 2>&1 ;;
     off)    pkill -f "systemd-inhibit.*SwayNC" ;;
     toggle) if running; then "$0" off; else "$0" on; fi; exit 0 ;;
 esac

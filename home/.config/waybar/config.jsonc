@@ -158,7 +158,7 @@
         },
         "return-type": "json",
         "exec-if": "which swaync-client",
-        "exec": "swaync-client -swb",
+        "exec": "~/.config/waybar/scripts/notify-watch.sh",
         "on-click": "~/.config/keysound/keysound.sh play open; swaync-client -t -sw",
         "on-click-right": "~/.config/keysound/keysound.sh play click; swaync-client -d -sw",
         "escape": true
