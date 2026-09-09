@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# remote: control the laptop from an SSH session (Termius over Tailscale). Usage: remote <command> [args]
+# Works without a desktop environment in the shell: it finds the running Hyprland session first.
+RT="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export XDG_RUNTIME_DIR="$RT" WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}" DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$RT/bus}"
+[ -z "$HYPRLAND_INSTANCE_SIGNATURE" ] && export HYPRLAND_INSTANCE_SIGNATURE="$(ls -t "$RT/hypr" 2>/dev/null | head -1)"
+KS=~/.config/keysound/keysound.sh; PHONE="${REMOTE_PHONE:-oneplus-nord2-5g}"
+B=$'\e[38;2;58;224;255m' G=$'\e[38;2;57;255;20m' A=$'\e[38;2;255;176;0m' M=$'\e[38;2;107;107;120m' N=$'\e[0m'
+say() { printf '%s%s%s\n' "$B" "$*" "$N"; }
+
+case "${1:-help}" in
+    status|st)
+        b=$(~/.config/waybar/scripts/battery.sh --text 2>/dev/null); up=$(uptime -p | sed 's/^up //')
+        prof=$(powerprofilesctl get 2>/dev/null); wifi=$(nmcli -t -f NAME,DEVICE con show --active 2>/dev/null | awk -F: '$2 ~ /^wl/ {print $1; exit}')
+        np=$(playerctl metadata --format '{{status}}: {{artist}} — {{title}}' 2>/dev/null); lock=$([ -f "$RT/locked-at" ] && echo locked || echo unlocked)
+        printf '%s%-10s%s %s\n' "$M" "host" "$N" "$(uname -n) · up $up · $lock"
+        printf '%s%-10s%s %s\n' "$M" "battery" "$N" "$b"
+        printf '%s%-10s%s %s\n' "$M" "profile" "$N" "$prof"
+        printf '%s%-10s%s %s\n' "$M" "wifi" "$N" "${wifi:-none}  ·  tailscale $(tailscale ip -4 2>/dev/null)"
+        printf '%s%-10s%s %s\n' "$M" "media" "$N" "${np:-nothing playing}"
+        printf '%s%-10s%s %s\n' "$M" "window" "$N" "$(hyprctl activewindow -j 2>/dev/null | python3 -c 'import json,sys; c=json.load(sys.stdin); print(c.get("class",""), "·", c.get("title","")[:60])' 2>/dev/null)"
+        printf '%s%-10s%s %s\n' "$M" "updates" "$N" "$(python3 -c "import json; d=json.load(open('$RT/waybar-updates.json')); print(d.get('tooltip','?').split(chr(10))[0])" 2>/dev/null)" ;;
+    lock)       loginctl lock-session && say "locked" ;;
+    notify|say) shift; notify-send -a remote -i phone "$(printf '%s' "${1:-ping}")" "${2:-}" && say "shown on the laptop screen" ;;
+    play|pause|toggle) playerctl play-pause && say "$(playerctl status)" ;;
+    next)       playerctl next && sleep 0.5 && playerctl metadata --format '{{artist}} — {{title}}' ;;
+    prev)       playerctl previous && sleep 0.5 && playerctl metadata --format '{{artist}} — {{title}}' ;;
+    np|playing) playerctl metadata --format '{{status}}: {{artist}} — {{title}} ({{playerName}})' 2>/dev/null || echo "nothing playing" ;;
+    vol|volume) if [ -n "$2" ]; then wpctl set-volume @DEFAULT_AUDIO_SINK@ "$2%" ; fi; wpctl get-volume @DEFAULT_AUDIO_SINK@ ;;
+    mute)       wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle; wpctl get-volume @DEFAULT_AUDIO_SINK@ ;;
+    bright|brightness) if [ -n "$2" ]; then brightnessctl -q set "$2%"; fi; brightnessctl -m | cut -d, -f4 ;;
+    profile)    if [ -n "$2" ]; then powerprofilesctl set "$2"; fi; powerprofilesctl get ;;
+    awake)      ~/.config/swaync/keepawake.sh "${2:-toggle}"; echo "keep-awake: $(~/.config/swaync/keepawake.sh state)" ;;
+    night)      ~/.config/swaync/nightlight.sh "${2:-toggle}"; echo "night light: $(~/.config/swaync/nightlight.sh state)" ;;
+    shot|screenshot)  # full screen -> file, and sent to the phone via Taildrop if it is online
+        f=~/Pictures/Screenshots/remote_$(date +%Y%m%d_%H%M%S).png; grim "$f" && say "saved $f"
+        if tailscale status 2>/dev/null | grep -q "$PHONE"; then tailscale file cp "$f" "$PHONE:" && say "sent to $PHONE (check the Tailscale app)"; fi ;;
+    send)       shift; [ -f "$1" ] || { echo "usage: remote send <file>"; exit 1; }; tailscale file cp "$1" "$PHONE:" && say "sent $(basename "$1") to $PHONE" ;;
+    recv|receive) mkdir -p ~/Downloads/phone; tailscale file get ~/Downloads/phone && say "files from the phone are in ~/Downloads/phone" ;;
+    open|url)   shift; xdg-open "$1" >/dev/null 2>&1 & say "opened on the laptop" ;;
+    type)       shift; wtype -- "$*" && say "typed" ;;
+    key)        shift; wtype -k "$1" && say "pressed $1" ;;
+    win|windows) hyprctl clients -j | python3 -c 'import json,sys; [print(f"{c[\"workspace\"][\"id\"]:>3}  {c[\"class\"]:<22} {c[\"title\"][:60]}") for c in json.load(sys.stdin)]' ;;
+    ws)         hyprctl dispatch "hl.dsp.focus({ workspace = ${2:-1} })" >/dev/null && say "workspace $2" ;;
+    run)        shift; hyprctl dispatch "hl.dsp.exec_cmd(\"$*\")" >/dev/null && say "launched: $*" ;;
+    updates)    ~/.config/waybar/scripts/updates.sh | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("tooltip","").replace("\\n","\n"))' ;;
+    upgrade)    paru -Syu ;;
+    suspend)    say "suspending in 3 s (you will lose this session)"; sleep 3; systemctl suspend ;;
+    reboot)     read -r -p "reboot the laptop? [y/N] " a; [ "$a" = y ] && systemctl reboot ;;
+    poweroff)   read -r -p "power off the laptop? [y/N] " a; [ "$a" = y ] && systemctl poweroff ;;
+    sound)      "$KS" play "${2:-notify}" --force && say "played ${2:-notify}" ;;
+    help|*)
+        cat <<H
+${B}remote${N} — control the laptop from your phone
+  ${G}status${N}            battery, profile, wifi, media, window, updates
+  ${G}lock${N}              lock the screen        ${G}awake${N} [on|off]   keep-awake
+  ${G}notify${N} "t" ["b"]  message on the screen  ${G}sound${N} [event]    play a theme sound
+  ${G}play${N} / ${G}next${N} / ${G}prev${N} / ${G}np${N}   media          ${G}vol${N} [0-100] / ${G}mute${N}
+  ${G}bright${N} [1-100]    screen brightness      ${G}night${N} [on|off]   night light
+  ${G}profile${N} [name]    power profile          ${G}ws${N} N              focus workspace N
+  ${G}windows${N}           list open windows      ${G}run${N} cmd           launch on the laptop
+  ${G}open${N} URL          open in the browser    ${G}type${N} text / ${G}key${N} k   fake input
+  ${G}shot${N}              screenshot -> file + phone (Taildrop)
+  ${G}send${N} file / ${G}recv${N}  files to / from the phone
+  ${G}updates${N} / ${G}upgrade${N}  ${G}suspend${N} / ${G}reboot${N} / ${G}poweroff${N}
+H
+        ;;
+esac

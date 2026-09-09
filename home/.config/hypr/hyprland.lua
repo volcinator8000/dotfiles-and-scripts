@@ -52,6 +52,7 @@ hl.on("hyprland.start", function ()
     hl.exec_cmd("[workspace special:slack silent] slack")
     hl.exec_cmd("[workspace special:spotify silent] spotify")
     hl.exec_cmd("nm-applet --indicator")
+    hl.exec_cmd("kdeconnect-indicator") -- phone link (KDE Connect): notifications, clipboard, files, media; tray icon
     hl.exec_cmd("playerctld daemon") -- follows the most recently active media player (bar title + lyrics)
     hl.exec_cmd("hypridle")
     hl.exec_cmd("swaync")

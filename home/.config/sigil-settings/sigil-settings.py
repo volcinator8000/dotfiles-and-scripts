@@ -467,6 +467,20 @@ class PowerPage(Adw.PreferencesPage):
         g.add(self.awake)
         self.add(g)
 
+        g = Adw.PreferencesGroup(title="Automatic profile", description="Switch on charger events (checked every 10 s by the battery widget).")
+        pa = self.read_power_auto()
+        self.pa_enabled = Adw.SwitchRow(title="Switch automatically"); self.pa_enabled.set_active(pa["enabled"] == "true")
+        self.pa_enabled.connect("notify::active", lambda r, _: self.write_power_auto())
+        g.add(self.pa_enabled)
+        self.pa_bat = Adw.ComboRow(title="On battery"); self.pa_bat.set_model(Gtk.StringList.new(self.profiles or ["power-saver"]))
+        self.pa_ac = Adw.ComboRow(title="On charger"); self.pa_ac.set_model(Gtk.StringList.new(self.profiles or ["balanced"]))
+        for row, key in ((self.pa_bat, "on_battery"), (self.pa_ac, "on_ac")):
+            if pa[key] in self.profiles:
+                row.set_selected(self.profiles.index(pa[key]))
+            row.connect("notify::selected", lambda *_: self.write_power_auto())
+            g.add(row)
+        self.add(g)
+
         g = Adw.PreferencesGroup(title="Display")
         b = run(["brightnessctl", "-m"]).split(",")
         cur_b = float(b[3].rstrip("%")) if len(b) > 3 else 100
@@ -513,6 +527,23 @@ class PowerPage(Adw.PreferencesPage):
         n = run([NIGHTLIGHT, "state"]) == "true"; self.app.night_cache = n
         if self.night.get_active() != n:
             self.night.handler_block_by_func(self.on_night); self.night.set_active(n); self.night.handler_unblock_by_func(self.on_night)
+
+    PA = os.path.join(CFG, "hypr", "power-auto.conf")
+
+    def read_power_auto(self):
+        d = {"enabled": "true", "on_battery": "power-saver", "on_ac": "balanced"}
+        for line in read(self.PA).splitlines():
+            if "=" in line and not line.startswith("#"):
+                k, v = line.split("=", 1); d[k.strip()] = v.strip()
+        return d
+
+    def write_power_auto(self):
+        if not self.profiles:
+            return
+        with open(self.PA, "w") as f:
+            f.write("# automatic power profile on charger events (read by waybar/scripts/battery.sh every 10 s; edit in the settings app)\n"
+                    f"enabled={'true' if self.pa_enabled.get_active() else 'false'}\n"
+                    f"on_battery={self.profiles[self.pa_bat.get_selected()]}\non_ac={self.profiles[self.pa_ac.get_selected()]}\n")
 
     def on_profile(self, row, _):
         if self.profiles:
@@ -828,7 +859,11 @@ class WifiPage(Adw.PreferencesPage):
         g = Adw.PreferencesGroup(title="Remote access", description="Tailscale: private network between your devices, works from anywhere; SSH goes over it.")
         self.ts_row = Adw.ActionRow(title="Tailscale", subtitle=self.ts_status())
         b = Gtk.Button(label="Copy ssh command", valign=Gtk.Align.CENTER); b.connect("clicked", lambda *_: self.copy_ts()); self.ts_row.add_suffix(b)
-        g.add(self.ts_row); self.add(g)
+        g.add(self.ts_row)
+        self.phone_row = Adw.ActionRow(title="Phone (KDE Connect)", subtitle=self.phone_status())
+        pb = Gtk.Button(label="Pair / manage", valign=Gtk.Align.CENTER); pb.connect("clicked", lambda *_: spawn(["kdeconnect-app"])); self.phone_row.add_suffix(pb)
+        pf = Gtk.Button(label="Find phone", valign=Gtk.Align.CENTER); pf.connect("clicked", lambda *_: (run(["kdeconnect-cli", "--ring", "-d", self.phone_id()]), self.toast("Ringing the phone"))); self.phone_row.add_suffix(pf)
+        g.add(self.phone_row); self.add(g)
 
         self.wifi_group = Adw.PreferencesGroup(title="Networks")
         b = Gtk.Button(label="Rescan", valign=Gtk.Align.CENTER); b.connect("clicked", lambda *_: self.scan_wifi(rescan=True))
@@ -839,7 +874,22 @@ class WifiPage(Adw.PreferencesPage):
 
 
     def refresh(self):
-        self.ts_row.set_subtitle(self.ts_status()); self.scan_wifi()
+        self.ts_row.set_subtitle(self.ts_status()); self.phone_row.set_subtitle(self.phone_status()); self.scan_wifi()
+
+    @staticmethod
+    def phone_id():
+        out = run(["kdeconnect-cli", "-a", "--id-only"], timeout=4)
+        return out.split()[0] if out else ""
+
+    def phone_status(self):
+        if not run(["which", "kdeconnect-cli"]):
+            return "kdeconnect not installed (sudo pacman -S kdeconnect; sudo ufw allow 1714:1764/tcp; sudo ufw allow 1714:1764/udp)"
+        devs = run(["kdeconnect-cli", "-l"], timeout=4)
+        reach = [l for l in devs.splitlines() if "reachable" in l and "paired" in l]
+        if reach:
+            return reach[0].strip().lstrip("- ")
+        return "no phone reachable · pair from the KDE Connect app (add by Tailscale IP when not on the same Wi-Fi)"
+
 
     @staticmethod
     def ts_info():

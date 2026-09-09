@@ -26,8 +26,16 @@ case "$state" in
 esac
 # ── sound events on state changes (plug / unplug / battery low), state kept in the runtime dir ──
 ST="${XDG_RUNTIME_DIR:-/tmp}/battery-state"; prev=$(cat "$ST" 2>/dev/null); KS=~/.config/keysound/keysound.sh
+PA=~/.config/hypr/power-auto.conf; pa() { sed -n "s/^$1=//p" "$PA" 2>/dev/null; }
 if [ -n "$prev" ] && [ "$prev" != "$state" ]; then
-    case "$state" in charging|fully-charged|pending-charge) [ "$prev" = discharging ] && "$KS" play plug ;; discharging) "$KS" play unplug ;; esac
+    case "$state" in
+        charging|fully-charged|pending-charge)
+            [ "$prev" = discharging ] && { "$KS" play plug
+                if [ "$(pa enabled)" = true ] && [ -n "$(pa on_ac)" ]; then powerprofilesctl set "$(pa on_ac)" 2>/dev/null && notify-send -a power -i battery-good-charging "Charger connected" "profile: $(pa on_ac)"; fi; } ;;
+        discharging)
+            "$KS" play unplug
+            if [ "$(pa enabled)" = true ] && [ -n "$(pa on_battery)" ]; then powerprofilesctl set "$(pa on_battery)" 2>/dev/null && notify-send -a power -i battery-good "On battery" "profile: $(pa on_battery)"; fi ;;
+    esac
 fi
 echo "$state" > "$ST"
 LOW="${XDG_RUNTIME_DIR:-/tmp}/battery-low-warned"
