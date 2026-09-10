@@ -49,6 +49,7 @@ case "${1:-help}" in
     reboot)     read -r -p "reboot the laptop? [y/N] " a; [ "$a" = y ] && systemctl reboot ;;
     poweroff)   read -r -p "power off the laptop? [y/N] " a; [ "$a" = y ] && systemctl poweroff ;;
     sound)      "$KS" play "${2:-notify}" --force && say "played ${2:-notify}" ;;
+    audio)      systemctl --user restart pipewire pipewire-pulse wireplumber && say "audio stack restarted" ;;
     help|*)
         cat <<H
 ${B}remote${N} — control the laptop from your phone
@@ -62,6 +63,7 @@ ${B}remote${N} — control the laptop from your phone
   ${G}open${N} URL          open in the browser    ${G}type${N} text / ${G}key${N} k   fake input
   ${G}shot${N}              screenshot -> file + phone (Taildrop)
   ${G}send${N} file / ${G}recv${N}  files to / from the phone
+  ${G}audio${N}             restart pipewire/wireplumber (sound dead, video will not start)
   ${G}updates${N} / ${G}upgrade${N}  ${G}suspend${N} / ${G}reboot${N} / ${G}poweroff${N}
 H
         ;;

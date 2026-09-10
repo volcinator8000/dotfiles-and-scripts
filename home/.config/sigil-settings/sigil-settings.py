@@ -686,6 +686,7 @@ class DesktopPage(Adw.PreferencesPage):
             ("hyprpaper", "wallpaper daemon", lambda: restart("hyprpaper")),
             ("hyprsunset", "night light daemon", lambda: restart("hyprsunset")),
             ("Key sounds", "typewriter daemon", lambda: run([KS_SH, "restart"])),
+            ("Audio stack", "pipewire + wireplumber (when sound dies or media will not start)", lambda: run(["systemctl", "--user", "restart", "pipewire", "pipewire-pulse", "wireplumber"], timeout=15)),
             ("Hyprland config", "hyprctl reload", lambda: run(["hyprctl", "reload"])),
             ("Settings app", "this window (resident); reloads its code", lambda: spawn("sh -c 'python3 ~/.config/sigil-settings/sigil-settings.py --quit; sleep 1; python3 ~/.config/sigil-settings/sigil-settings.py --hidden'")),
         ):
