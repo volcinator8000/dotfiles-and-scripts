@@ -479,6 +479,10 @@ class PowerPage(Adw.PreferencesPage):
                 row.set_selected(self.profiles.index(pa[key]))
             row.connect("notify::selected", lambda *_: self.write_power_auto())
             g.add(row)
+        self.pa_eco = Adw.SwitchRow(title="Eco effects on battery", subtitle="Blur and shadows off while unplugged (less GPU work), restored on charger")
+        self.pa_eco.set_active(pa.get("eco_effects", "true") == "true"); self.pa_eco.connect("notify::active", lambda *_: self.write_power_auto()); g.add(self.pa_eco)
+        self.pa_bright = spin("Brightness cap on unplug", "percent, 0 = leave it", int(pa.get("eco_brightness", "60") or 0), 0, 100, 5)
+        self.pa_bright.connect("notify::value", lambda *_: self.write_power_auto()); g.add(self.pa_bright)
         self.add(g)
 
         g = Adw.PreferencesGroup(title="Display")
@@ -531,7 +535,7 @@ class PowerPage(Adw.PreferencesPage):
     PA = os.path.join(CFG, "hypr", "power-auto.conf")
 
     def read_power_auto(self):
-        d = {"enabled": "true", "on_battery": "power-saver", "on_ac": "balanced"}
+        d = {"enabled": "true", "on_battery": "power-saver", "on_ac": "balanced", "eco_effects": "true", "eco_brightness": "60"}
         for line in read(self.PA).splitlines():
             if "=" in line and not line.startswith("#"):
                 k, v = line.split("=", 1); d[k.strip()] = v.strip()
@@ -543,7 +547,8 @@ class PowerPage(Adw.PreferencesPage):
         with open(self.PA, "w") as f:
             f.write("# automatic power profile on charger events (read by waybar/scripts/battery.sh every 10 s; edit in the settings app)\n"
                     f"enabled={'true' if self.pa_enabled.get_active() else 'false'}\n"
-                    f"on_battery={self.profiles[self.pa_bat.get_selected()]}\non_ac={self.profiles[self.pa_ac.get_selected()]}\n")
+                    f"on_battery={self.profiles[self.pa_bat.get_selected()]}\non_ac={self.profiles[self.pa_ac.get_selected()]}\n"
+                    f"eco_effects={'true' if self.pa_eco.get_active() else 'false'}\neco_brightness={int(self.pa_bright.get_value())}\n")
 
     def on_profile(self, row, _):
         if self.profiles:

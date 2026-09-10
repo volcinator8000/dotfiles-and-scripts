@@ -27,14 +27,23 @@ esac
 # ── sound events on state changes (plug / unplug / battery low), state kept in the runtime dir ──
 ST="${XDG_RUNTIME_DIR:-/tmp}/battery-state"; prev=$(cat "$ST" 2>/dev/null); KS=~/.config/keysound/keysound.sh
 PA=~/.config/hypr/power-auto.conf; pa() { sed -n "s/^$1=//p" "$PA" 2>/dev/null; }
+eco() {  # eco on|off : compositor eye-candy costs iGPU power; brightness cap on unplug
+    if [ "$(pa eco_effects)" = true ]; then
+        if [ "$1" = on ]; then hyprctl --batch "keyword decoration:blur:enabled false; keyword decoration:shadow:enabled false" >/dev/null 2>&1
+        else hyprctl reload >/dev/null 2>&1; fi   # reload restores whatever hyprland.lua says
+    fi
+    lvl=$(pa eco_brightness); [ "$1" = on ] && [ "${lvl:-0}" -gt 0 ] 2>/dev/null && { cur=$(brightnessctl -m | cut -d, -f4 | tr -d %); [ "$cur" -gt "$lvl" ] && brightnessctl -q set "$lvl%"; }
+}
 if [ -n "$prev" ] && [ "$prev" != "$state" ]; then
     case "$state" in
         charging|fully-charged|pending-charge)
             [ "$prev" = discharging ] && { "$KS" play plug
-                if [ "$(pa enabled)" = true ] && [ -n "$(pa on_ac)" ]; then powerprofilesctl set "$(pa on_ac)" 2>/dev/null && notify-send -a power -i battery-good-charging "Charger connected" "profile: $(pa on_ac)"; fi; } ;;
+                if [ "$(pa enabled)" = true ] && [ -n "$(pa on_ac)" ]; then powerprofilesctl set "$(pa on_ac)" 2>/dev/null && notify-send -a power -i battery-good-charging "Charger connected" "profile: $(pa on_ac)"; fi
+                eco off; } ;;
         discharging)
             "$KS" play unplug
-            if [ "$(pa enabled)" = true ] && [ -n "$(pa on_battery)" ]; then powerprofilesctl set "$(pa on_battery)" 2>/dev/null && notify-send -a power -i battery-good "On battery" "profile: $(pa on_battery)"; fi ;;
+            if [ "$(pa enabled)" = true ] && [ -n "$(pa on_battery)" ]; then powerprofilesctl set "$(pa on_battery)" 2>/dev/null && notify-send -a power -i battery-good "On battery" "profile: $(pa on_battery)"; fi
+            eco on ;;
     esac
 fi
 echo "$state" > "$ST"

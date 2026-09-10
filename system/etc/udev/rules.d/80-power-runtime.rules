@@ -1,0 +1,4 @@
+# Runtime power management for every PCI and USB device (what powertop --auto-tune / TLP do).
+# The dGPU already had it; this covers the wifi, audio, nvme, xhci, sensors... 22 devices were left "on".
+ACTION=="add", SUBSYSTEM=="pci", ATTR{power/control}="auto"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{power/control}="auto"
