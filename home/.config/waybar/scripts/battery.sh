@@ -29,7 +29,7 @@ ST="${XDG_RUNTIME_DIR:-/tmp}/battery-state"; prev=$(cat "$ST" 2>/dev/null); KS=~
 PA=~/.config/hypr/power-auto.conf; pa() { sed -n "s/^$1=//p" "$PA" 2>/dev/null; }
 eco() {  # eco on|off : compositor eye-candy costs iGPU power; brightness cap on unplug
     if [ "$(pa eco_effects)" = true ]; then
-        if [ "$1" = on ]; then hyprctl --batch "keyword decoration:blur:enabled false; keyword decoration:shadow:enabled false" >/dev/null 2>&1
+        if [ "$1" = on ]; then hyprctl eval 'hl.config({ decoration = { blur = { enabled = false }, shadow = { enabled = false } } })' >/dev/null 2>&1   # Lua build: keyword is refused, eval works
         else hyprctl reload >/dev/null 2>&1; fi   # reload restores whatever hyprland.lua says
     fi
     lvl=$(pa eco_brightness); [ "$1" = on ] && [ "${lvl:-0}" -gt 0 ] 2>/dev/null && { cur=$(brightnessctl -m | cut -d, -f4 | tr -d %); [ "$cur" -gt "$lvl" ] && brightnessctl -q set "$lvl%"; }
