@@ -186,6 +186,12 @@ if (( ! SKIP_SYSTEM )); then
             run sudo install -Dm644 "$f" "/etc/$rel"; ok "/etc/$rel"
         fi
     done < <(find system/etc -type f | sort)
+    if [[ -d system/usr ]]; then
+        while IFS= read -r f; do
+            rel="${f#system/usr/}"
+            if ! sudo cmp -s "$f" "/usr/$rel" 2>/dev/null; then run sudo install -Dm755 "$f" "/usr/$rel"; ok "/usr/$rel"; fi
+        done < <(find system/usr -type f | sort)
+    fi
     say "services, groups, shell"
     run sudo systemctl enable --now paccache.timer fstrim.timer power-profiles-daemon bluetooth NetworkManager 2>/dev/null || true
     run sudo sysctl --system >/dev/null 2>&1 || true

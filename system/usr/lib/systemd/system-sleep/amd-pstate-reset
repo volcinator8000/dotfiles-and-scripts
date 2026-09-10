@@ -1,0 +1,15 @@
+#!/bin/sh
+# After resume the amd-pstate-epp driver can leave every core clamped at its lowest non-linear
+# frequency (~400 MHz idle / 1.1 GHz under load) until the driver is re-initialised.
+# Seen 2026-09-10 on the Ryzen 5 7535HS after an s2idle suspend. Re-arm it on every resume.
+[ "$1" = "post" ] || exit 0
+S=/sys/devices/system/cpu/amd_pstate/status
+[ -w "$S" ] || exit 0
+echo passive > "$S" 2>/dev/null
+sleep 0.2
+echo active > "$S" 2>/dev/null
+# restore the governor/EPP the session expects (power-profiles-daemon re-applies its profile on its own)
+for c in /sys/devices/system/cpu/cpu[0-9]*/cpufreq; do
+    echo powersave > "$c/scaling_governor" 2>/dev/null
+done
+logger -t amd-pstate-reset "amd_pstate re-initialised after resume"
