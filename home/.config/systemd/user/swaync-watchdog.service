@@ -1,6 +1,0 @@
-[Unit]
-Description=Restart swaync if it is spinning
-
-[Service]
-Type=oneshot
-ExecStart=%h/.local/bin/swaync-watchdog
