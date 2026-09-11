@@ -4,7 +4,7 @@
 DRY=""; [[ "$1" == "--dry" ]] && DRY=1
 if [[ -z "$INSIDE_UPDATE_WINDOW" ]]; then
     INSIDE_UPDATE_WINDOW=1 exec kitty --title "system-update" \
-        -o initial_window_width=132c -o initial_window_height=40c \
+        -o initial_window_width=112c -o initial_window_height=35c \
         -o font_size=11 -o background_opacity=0.94 \
         -e "$0" "$@"
 fi

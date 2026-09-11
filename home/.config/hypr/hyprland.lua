@@ -506,7 +506,7 @@ hl.window_rule({
     match = { title = "^system-update$" },
     float = true,
     center = true,
-    size = "1500 860",
+    size = "1280 760",
 })
 
 hl.window_rule({
