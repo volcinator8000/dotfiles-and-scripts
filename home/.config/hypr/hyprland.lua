@@ -285,23 +285,6 @@ hl.config({
         touchpad = {
             natural_scroll = true,
         },
-
-        -- Wacom Intuos BT S (CTL-4100WL). The kernel `wacom` driver + libinput
-        -- handle it natively on Wayland; no xf86-input-wacom needed.
-        tablet = {
-            output = "eDP-1",     -- pin the mapping to the laptop panel, not a
-                                  -- spanned desktop when HDMI is plugged in
-            left_handed = false,
-            relative_input = false, -- false = absolute (pen maps 1:1 to screen)
-
-            -- Force square proportions. The surface is 152x95 mm (1.60:1) but
-            -- eDP-1 is 1920x1080 (1.78:1); mapping all of it to all of the
-            -- screen stretches Y, so circles draw as ellipses. Crop the tablet
-            -- to 152 x 85.5 mm (152/1.7778) and centre it, leaving a 4.75 mm
-            -- dead strip top and bottom. Units here are millimetres.
-            active_area_size     = { 152, 85.5 },
-            active_area_position = { 0, 4.75 },
-        },
     },
 })
 
@@ -554,3 +537,7 @@ hl.config({ render = { ctm_animation = 0 } })
 
 -- machine-local overrides written by the settings app; errors there must never kill the session
 pcall(dofile, os.getenv("HOME") .. "/.config/hypr/local.lua")
+-- Drawing-tablet mapping, owned by the Tablet page of sigil-settings.
+-- Kept out of local.lua because the Input page rewrites that file wholesale;
+-- hl.config merges, so whichever of the two loads last wins.
+pcall(dofile, os.getenv("HOME") .. "/.config/hypr/tablet.lua")
