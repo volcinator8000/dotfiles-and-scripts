@@ -293,6 +293,14 @@ hl.config({
                                   -- spanned desktop when HDMI is plugged in
             left_handed = false,
             relative_input = false, -- false = absolute (pen maps 1:1 to screen)
+
+            -- Force square proportions. The surface is 152x95 mm (1.60:1) but
+            -- eDP-1 is 1920x1080 (1.78:1); mapping all of it to all of the
+            -- screen stretches Y, so circles draw as ellipses. Crop the tablet
+            -- to 152 x 85.5 mm (152/1.7778) and centre it, leaving a 4.75 mm
+            -- dead strip top and bottom. Units here are millimetres.
+            active_area_size     = { 152, 85.5 },
+            active_area_position = { 0, 4.75 },
         },
     },
 })
