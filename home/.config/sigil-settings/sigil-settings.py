@@ -1342,17 +1342,28 @@ class TabletPage(Adw.PreferencesPage):
             return
         spawn(["input-remapper-gtk"])
 
+    @staticmethod
+    def _tool(name):
+        """Resolve a helper script without trusting PATH -- Hyprland's session PATH has no
+        ~/.local/bin, so the instance autostarted at login would never find it."""
+        for cand in (shutil.which(name),
+                     os.path.join(HOME, ".local", "bin", name),
+                     os.path.join(HOME, "dotfiles-and-scripts", "scripts", "bin", name)):
+            if cand and os.access(cand, os.X_OK):
+                return cand
+        return None
+
     def buttons(self):
-        exe = shutil.which("tablet-jitter")
+        exe = self._tool("tablet-jitter")
         if not exe:
-            self.toast("tablet-jitter not found in PATH")
+            self.toast("tablet-jitter not found")
             return
         spawn(["kitty", "--title", "tablet-test", "-e", exe, "buttons"])
 
     def jitter(self):
-        exe = shutil.which("tablet-jitter")
+        exe = self._tool("tablet-jitter")
         if not exe:
-            self.toast("tablet-jitter not found in PATH")
+            self.toast("tablet-jitter not found")
             return
         spawn(["kitty", "--title", "tablet-test", "-e", exe])
 
