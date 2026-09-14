@@ -1340,6 +1340,12 @@ class TabletPage(Adw.PreferencesPage):
         if not shutil.which("input-remapper-gtk"):
             self.toast("input-remapper is not installed (paru -S input-remapper)")
             return
+        if not self.tab:
+            # Opening the GUI with the tablet asleep has emptied the preset to "[]"
+            # twice: it loads nothing for the absent device and saves that back.
+            self.toast("Wake the tablet first - opening input-remapper without it "
+                       "can overwrite the preset with an empty one")
+            return
         spawn(["input-remapper-gtk"])
 
     @staticmethod
