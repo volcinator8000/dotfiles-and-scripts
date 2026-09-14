@@ -3,11 +3,12 @@
 
 Pages: Dashboard (live stats), Sounds (typewriter key sounds, packs), Power
 (profile, brightness, night light, idle timers), Desktop (wallpaper gallery,
-updates, services), Input (keyboard / touchpad via ~/.config/hypr/local.lua),
+updates, services), Input (keyboard / touchpad via ~/.config/hypr/local.lua), Tablet (drawing
+tablet mapping via ~/.config/hypr/tablet.lua),
 About (keys). Everything goes through the same scripts the bar and control
 center use. `--page NAME` opens on a page.
 """
-import os, re, sys, json, time, subprocess
+import os, re, sys, json, time, struct, fcntl, shutil, subprocess
 os.environ.setdefault("GDK_DISABLE", "vulkan")  # GTK's Vulkan probe wakes the suspended dGPU (+2 s startup); GL is plenty
 import gi
 gi.require_version("Gtk", "4.0")
@@ -27,6 +28,7 @@ HYPRPAPER = os.path.join(CFG, "hypr", "hyprpaper.conf")
 HYPRLOCK = os.path.join(CFG, "hypr", "hyprlock.conf")
 HYPRSUNSET = os.path.join(CFG, "hypr", "hyprsunset.conf")
 LOCAL_LUA = os.path.join(CFG, "hypr", "local.lua")
+TABLET_LUA = os.path.join(CFG, "hypr", "tablet.lua")
 WALLS = os.path.join(HOME, "Pictures", "Wallpapers")
 UPDATE_NOW = os.path.join(CFG, "waybar", "scripts", "update-now.sh")
 RUNTIME = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
@@ -1081,6 +1083,267 @@ class AboutPage(Adw.PreferencesPage):
 
 
 # ── application ───────────────────────────────────────────────────────────────
+class TabletPage(Adw.PreferencesPage):
+    """Drawing-tablet mapping written to ~/.config/hypr/tablet.lua (loaded from hyprland.lua with
+    pcall, like local.lua, so a bad write can never take the session down). Kept in its own file
+    because the Input page rewrites local.lua wholesale.
+
+    Everything here comes straight from the kernel: /proc/bus/input/devices for the Pen/Pad node
+    pair, EVIOCGABS for the surface size in mm and the pressure range. libwacom knows more about
+    exotic tablets, but this needs no subprocess on every refresh."""
+
+    ALL = "All monitors"
+
+    def __init__(self, toast, app):
+        super().__init__(title="Tablet", icon_name="input-tablet-symbolic")
+        self.toast = toast
+        self.tab, self.mons = None, []
+
+        g = Adw.PreferencesGroup(title="Device")
+        self.status = Adw.ActionRow(title="Looking for a tablet…", subtitle="")
+        self.status.add_prefix(Gtk.Image.new_from_icon_name("input-tablet-symbolic"))
+        self.status.add_suffix(self._button("Refresh", self.refresh))
+        g.add(self.status)
+        self.add(g)
+
+        g = Adw.PreferencesGroup(title="Mapping",
+                                 description="Written to tablet.lua and applied with hyprctl reload.")
+        self.output = Adw.ComboRow(title="Map to", subtitle="which screen the pen addresses")
+        self.output.set_model(Gtk.StringList.new([self.ALL]))
+        self.prop = Adw.SwitchRow(title="Force proportions",
+                                  subtitle="crop the surface so circles stay circles")
+        self.prop.connect("notify::active", lambda *_: self.describe())
+        self.output.connect("notify::selected", lambda *_: self.describe())
+        self.lefty = Adw.SwitchRow(title="Left-handed", subtitle="rotate the surface 180°")
+        self.rel = Adw.SwitchRow(title="Relative mode",
+                                 subtitle="pen behaves like a mouse instead of mapping 1:1")
+        for r in (self.output, self.prop, self.lefty, self.rel):
+            g.add(r)
+        g.add(button_row("Apply", "Write tablet.lua and reload Hyprland",
+                         ("Apply", self.apply, "suggested-action"),
+                         ("Reset", self.reset, "destructive-action")))
+        self.add(g)
+
+        self.btn_group = Adw.PreferencesGroup(title="Buttons")
+        self.keys = Adw.ActionRow(title="ExpressKeys", subtitle="")
+        self.keys.add_suffix(self._button("Open input-remapper", self.remapper))
+        self.btn_group.add(self.keys)
+        self.add(self.btn_group)
+
+        g = Adw.PreferencesGroup(title="Diagnostics")
+        row = Adw.ActionRow(title="Jitter and report rate",
+                            subtitle="hold the pen still; measures noise in mm and Bluetooth stalls")
+        row.add_suffix(self._button("Run test", self.jitter))
+        g.add(row)
+        self.add(g)
+
+        self.refresh()
+
+    @staticmethod
+    def _button(label, cb, style=None):
+        b = Gtk.Button(label=label, valign=Gtk.Align.CENTER)
+        if style:
+            b.add_css_class(style)
+        b.connect("clicked", lambda _b: cb())
+        return b
+
+    # ── detection ────────────────────────────────────────────────────────────
+    @staticmethod
+    def _absinfo(dev, axis):
+        """EVIOCGABS(axis) -> (min, max, res) or None."""
+        fmt = "6i"
+        size = struct.calcsize(fmt)
+        req = (2 << 30) | (size << 16) | (ord("E") << 8) | (0x40 + axis)
+        try:
+            fd = os.open(dev, os.O_RDONLY)
+        except OSError:
+            return None
+        try:
+            _, mn, mx, _, _, res = struct.unpack(fmt, fcntl.ioctl(fd, req, b"\0" * size))
+            return mn, mx, res
+        except OSError:
+            return None
+        finally:
+            os.close(fd)
+
+    @classmethod
+    def detect(cls):
+        """First Pen/Pad pair in /proc/bus/input/devices, with size in mm and pressure range."""
+        pens, pads = {}, {}
+        for block in read("/proc/bus/input/devices").split("\n\n"):
+            name = bus = node = None
+            keybits = ""
+            for line in block.splitlines():
+                if line.startswith("N: Name="):
+                    name = line.split("=", 1)[1].strip('"')
+                elif line.startswith("I: Bus="):
+                    bus = line.split("Bus=")[1].split()[0]
+                elif line.startswith("H: Handlers="):
+                    node = next((t for t in line.split("=", 1)[1].split() if t.startswith("event")), None)
+                elif line.startswith("B: KEY="):
+                    keybits = line.split("=", 1)[1].strip()
+            if not (name and node):
+                continue
+            if name.endswith(" Pen"):
+                pens[name[:-4]] = ("/dev/input/" + node, bus)
+            elif name.endswith(" Pad"):
+                pads[name[:-4]] = ("/dev/input/" + node, keybits)
+        if not pens:
+            return None
+        base = sorted(pens)[0]
+        dev, bus = pens[base]
+        x, y, p = (cls._absinfo(dev, a) for a in (0, 1, 0x18))
+        if not (x and y):
+            return None
+        t = {"name": base, "pen": dev, "bus": bus,
+             "w": (x[1] - x[0]) / (x[2] or 100), "h": (y[1] - y[0]) / (y[2] or 100),
+             "pmax": p[1] if p else 0, "keys": 0}
+        if base in pads:
+            t["pad"], bits = pads[base]
+            # KEY bitmap is printed as 64-bit groups, high group first; BTN_0..BTN_9 live at 0x100+
+            groups = bits.split()
+            if len(groups) >= 2:
+                idx = len(groups) - 1 - (0x100 // 64)
+                if 0 <= idx < len(groups):
+                    t["keys"] = bin(int(groups[idx], 16)).count("1")
+        return t
+
+    @staticmethod
+    def monitors():
+        try:
+            return [(m["name"], m["width"], m["height"], m.get("transform", 0))
+                    for m in json.loads(run(["hyprctl", "-j", "monitors"]) or "[]")]
+        except (json.JSONDecodeError, TypeError, KeyError):
+            return []
+
+    # ── proportions maths ────────────────────────────────────────────────────
+    def crop_for(self, out):
+        """Largest sub-rectangle of the surface matching the target screen's aspect, centred."""
+        if not (self.tab and self.mons):
+            return None
+        name, w, h, tr = next((m for m in self.mons if m[0] == out), self.mons[0])
+        if tr in (1, 3, 5, 7):      # 90/270 rotations swap the visible aspect
+            w, h = h, w
+        aspect = w / h
+        tw, th = self.tab["w"], self.tab["h"]
+        if tw / th > aspect:        # surface wider than the screen -> trim the sides
+            cw, ch = th * aspect, th
+        else:                       # surface taller -> trim top and bottom
+            cw, ch = tw, tw / aspect
+        return (cw, ch), ((tw - cw) / 2, (th - ch) / 2), name, aspect
+
+    def describe(self):
+        """Keep the Force-proportions subtitle showing exactly what Apply will write."""
+        if not self.tab:
+            self.prop.set_subtitle("no tablet detected")
+            return
+        if not self.prop.get_active():
+            self.prop.set_subtitle(f"off - the whole {self.tab['w']:.0f} x {self.tab['h']:.0f} mm "
+                                   "surface is stretched to fill the screen")
+            return
+        crop = self.crop_for(self.selected_output())
+        if not crop:
+            self.prop.set_subtitle("no monitor information")
+            return
+        (cw, ch), (cx, cy), name, aspect = crop
+        dead = (f"{cy:.1f} mm dead top and bottom" if cy > 0.05 else
+                f"{cx:.1f} mm dead left and right" if cx > 0.05 else "no dead strip needed")
+        self.prop.set_subtitle(f"{cw:.1f} x {ch:.1f} mm active area for {name} "
+                               f"({aspect:.2f}:1) - {dead}")
+
+    def selected_output(self):
+        i = self.output.get_selected()
+        names = [self.ALL] + [m[0] for m in self.mons]
+        return names[i] if 0 <= i < len(names) else self.ALL
+
+    # ── state ────────────────────────────────────────────────────────────────
+    def refresh(self):
+        self.tab = self.detect()
+        self.mons = self.monitors()
+        names = [self.ALL] + [m[0] for m in self.mons]
+        cur = InputPage.opt("input:tablet:output", "")
+        self.output.set_model(Gtk.StringList.new(names))
+        self.output.set_selected(names.index(cur) if cur in names else 0)
+        self.lefty.set_active(InputPage.opt("input:tablet:left_handed", False))
+        self.rel.set_active(InputPage.opt("input:tablet:relative_input", False))
+        size = run(["hyprctl", "getoption", "input:tablet:active_area_size"])
+        self.prop.set_active("[0, 0]" not in size)
+
+        if self.tab:
+            t = self.tab
+            bus = {"0005": "Bluetooth", "0003": "USB"}.get(t["bus"], f"bus {t['bus']}")
+            levels = f"{t['pmax'] + 1} pressure levels" if t["pmax"] else "no pressure"
+            self.status.set_title(t["name"])
+            self.status.set_subtitle(f"{t['w']:.0f} x {t['h']:.0f} mm · {levels} · {bus}")
+            self.keys.set_subtitle(
+                f"{t['keys']} key{'s' if t['keys'] != 1 else ''} on the pad · nothing is bound until "
+                "input-remapper grabs them · record shortcuts by pressing the keys, typed names are "
+                "US codes and the fr layout will mangle them" if t["keys"]
+                else "this tablet has no pad buttons")
+            self.btn_group.set_visible(bool(t["keys"]))
+        else:
+            self.status.set_title("No tablet detected")
+            self.status.set_subtitle("Wake it or reconnect it (Bluetooth page), then press Refresh")
+            self.btn_group.set_visible(False)
+        for w in (self.output, self.prop, self.lefty, self.rel):
+            w.set_sensitive(bool(self.tab))
+        self.describe()
+
+    # ── actions ──────────────────────────────────────────────────────────────
+    def apply(self):
+        out = self.selected_output()
+        out = "" if out == self.ALL else out
+        L = ["-- generated by sigil-settings (Tablet page); loaded from hyprland.lua with "
+             "pcall(dofile). Safe to delete."]
+        if self.tab:
+            L.append(f"-- {self.tab['name']} - {self.tab['w']:.1f} x {self.tab['h']:.1f} mm surface, "
+                     f"{self.tab['pmax'] + 1} pressure levels")
+        L += ["hl.config({ input = {", "    tablet = {",
+              f'        output = "{out}",',
+              f"        left_handed = {str(self.lefty.get_active()).lower()},",
+              f"        relative_input = {str(self.rel.get_active()).lower()},"]
+        crop = self.crop_for(out) if self.prop.get_active() else None
+        if crop:
+            (cw, ch), (cx, cy), name, aspect = crop
+            L += [f"        -- proportions forced to {name} ({aspect:.2f}:1)",
+                  f"        active_area_size     = {{ {cw:.1f}, {ch:.1f} }},",
+                  f"        active_area_position = {{ {cx:.1f}, {cy:.1f} }},"]
+        else:
+            L += ["        -- { 0, 0 } is Hyprland's unset default: use the whole surface",
+                  "        active_area_size     = { 0, 0 },",
+                  "        active_area_position = { 0, 0 },"]
+        L += ["    },", "} })", ""]
+        with open(TABLET_LUA, "w") as f:
+            f.write("\n".join(L))
+        run(["hyprctl", "reload"])
+        err = run(["hyprctl", "configerrors"])
+        self.toast("Tablet settings applied" if not err.strip()
+                   else "Hyprland reported a config error, see hyprctl configerrors")
+        self.refresh()
+
+    def reset(self):
+        try:
+            os.remove(TABLET_LUA)
+        except OSError:
+            pass
+        run(["hyprctl", "reload"])
+        self.toast("tablet.lua removed, mapping back to Hyprland defaults")
+        self.refresh()
+
+    def remapper(self):
+        if not shutil.which("input-remapper-gtk"):
+            self.toast("input-remapper is not installed (paru -S input-remapper)")
+            return
+        spawn(["input-remapper-gtk"])
+
+    def jitter(self):
+        exe = shutil.which("tablet-jitter")
+        if not exe:
+            self.toast("tablet-jitter not found in PATH")
+            return
+        spawn(["kitty", "--title", "tablet-test", "-e", exe])
+
+
 PAGES = [("dashboard", "Dashboard", "utilities-system-monitor-symbolic", DashboardPage),
          ("wifi", "Wi-Fi", "network-wireless-symbolic", WifiPage),
          ("bluetooth", "Bluetooth", "bluetooth-symbolic", BluetoothPage),
@@ -1089,6 +1352,7 @@ PAGES = [("dashboard", "Dashboard", "utilities-system-monitor-symbolic", Dashboa
          ("power", "Power", "battery-symbolic", PowerPage),
          ("desktop", "Desktop", "preferences-desktop-wallpaper-symbolic", DesktopPage),
          ("input", "Input", "input-mouse-symbolic", InputPage),
+         ("tablet", "Tablet", "input-tablet-symbolic", TabletPage),
          ("about", "About", "help-about-symbolic", AboutPage)]
 
 
