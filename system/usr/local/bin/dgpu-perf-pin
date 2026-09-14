@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""Pin the discrete GPU awake while power-profiles-daemon is in "performance".
+
+The Navi 24 runtime-suspends after 5 s idle (80-power-runtime.rules sets every
+PCI device to control=auto). That is what we want almost always -- the card
+costs several watts in D0 -- but in "performance" the wake latency shows up as
+a stutter the first time anything touches the dGPU.
+
+So: profile == performance -> power/control = "on"  (pm_runtime_forbid: resumes
+the device and holds it in D0), anything else -> "auto" (normal runtime PM).
+
+Watches the ActiveProfile property on the well-known bus name, so it catches
+`powerprofilesctl set`, the settings app, and battery.sh's charger switching
+alike. Restores "auto" on exit -- a dead watcher must never leave the card pinned.
+"""
+import os, sys, signal, glob
+
+import gi
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib
+
+# ppd 0.30 owns two well-known names and each exposes its OWN interface at its own
+# path -- they are not interchangeable. Use the freedesktop triple consistently
+# (net.hadess.* is the legacy alias). Subscribing on the well-known name rather
+# than the unique name means a ppd restart does not orphan us.
+BUS_NAME = "org.freedesktop.UPower.PowerProfiles"
+OBJ_PATH = "/org/freedesktop/UPower/PowerProfiles"
+IFACE = "org.freedesktop.UPower.PowerProfiles"
+PIN_PROFILE = "performance"
+
+
+def log(msg):
+    print(msg, flush=True)
+
+
+def find_dgpu():
+    """The amdgpu PCI function that is a display class device and is not the
+    boot VGA. On this box: 0000:03:00.0 (Navi 24); the iGPU 0000:08:00.0 has
+    boot_vga=1. Deliberately not keyed on power/control -- that value is what
+    this service changes."""
+    for dev in sorted(glob.glob("/sys/bus/pci/devices/*")):
+        try:
+            if not open(f"{dev}/class").read().startswith("0x03"):
+                continue
+            if "amdgpu" not in os.path.realpath(f"{dev}/driver"):
+                continue
+            boot_vga = f"{dev}/boot_vga"
+            if os.path.exists(boot_vga) and open(boot_vga).read().strip() == "1":
+                continue          # that's the integrated 680M
+            return dev
+        except OSError:
+            continue
+    return None
+
+
+class Pinner:
+    def __init__(self, dev):
+        self.dev = dev
+        self.ctl = f"{dev}/power/control"
+        self.applied = None
+
+    def apply(self, profile):
+        want = "on" if profile == PIN_PROFILE else "auto"
+        if want == self.applied:
+            return
+        try:
+            with open(self.ctl, "w") as f:
+                f.write(want)
+        except OSError as e:
+            log(f"error: cannot write {self.ctl}: {e}")
+            return
+        self.applied = want
+        try:
+            state = open(f"{self.dev}/power/runtime_status").read().strip()
+        except OSError:
+            state = "?"
+        log(f"profile={profile} -> power/control={want} (runtime_status={state})")
+
+    def release(self, *_):
+        """Always hand the card back to normal runtime PM."""
+        try:
+            with open(self.ctl, "w") as f:
+                f.write("auto")
+            log("released: power/control=auto")
+        except OSError as e:
+            log(f"error on release: {e}")
+        sys.exit(0)
+
+
+def main():
+    dev = find_dgpu()
+    if not dev:
+        log("no discrete amdgpu found; nothing to do")
+        return 0
+    log(f"discrete GPU: {os.path.basename(dev)}")
+
+    pinner = Pinner(dev)
+    signal.signal(signal.SIGTERM, pinner.release)
+    signal.signal(signal.SIGINT, pinner.release)
+
+    proxy = Gio.DBusProxy.new_for_bus_sync(
+        Gio.BusType.SYSTEM, Gio.DBusProxyFlags.NONE, None,
+        BUS_NAME, OBJ_PATH, IFACE, None)
+
+    def current():
+        v = proxy.get_cached_property("ActiveProfile")
+        return v.get_string() if v else ""
+
+    def on_props(_proxy, changed, _invalidated):
+        if "ActiveProfile" in changed.keys():
+            pinner.apply(changed["ActiveProfile"])
+
+    proxy.connect("g-properties-changed", on_props)
+    pinner.apply(current())          # ppd persists the last profile across boots
+    GLib.MainLoop().run()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -284,11 +284,20 @@ class DashboardPage(Adw.PreferencesPage):
             self.gpu_card = None
             for card in ("card1", "card0", "card2"):
                 d = f"/sys/class/drm/{card}/device"
-                if "amdgpu" in os.path.realpath(f"{d}/driver") and read(f"{d}/power/control").strip() == "auto":
+                # The discrete card is amdgpu but not the boot VGA (that is the 680M iGPU,
+                # which has boot_vga=1). Deliberately NOT keyed on power/control: dgpu-perf-pin
+                # sets that to "on" in the performance profile, and matching "auto" would skip
+                # the dGPU and latch onto the iGPU instead.
+                if "amdgpu" in os.path.realpath(f"{d}/driver") and read(f"{d}/boot_vga").strip() != "1":
                     self.gpu_card = card; break
         if self.gpu_ticks % 5 == 1:
-            gs = read(f"/sys/class/drm/{self.gpu_card}/device/power/runtime_status").strip() if self.gpu_card else ""
-            self.gpu.set(gs or "n/a", "runtime power state · every 10 s", state="" if gs != "active" else "alert")
+            d = f"/sys/class/drm/{self.gpu_card}/device" if self.gpu_card else ""
+            gs = read(f"{d}/power/runtime_status").strip() if d else ""
+            pinned = read(f"{d}/power/control").strip() == "on" if d else False
+            sub = "held awake · performance profile" if pinned else "runtime power state · every 10 s"
+            # "active" is only worth flagging when the card woke on its own; in performance
+            # it is pinned on purpose.
+            self.gpu.set(gs or "n/a", sub, state="" if (gs != "active" or pinned) else "alert")
         # uptime
         try:
             secs = float(read("/proc/uptime", "0").split()[0])

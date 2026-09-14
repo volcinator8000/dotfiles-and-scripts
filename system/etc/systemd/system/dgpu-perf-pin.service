@@ -1,0 +1,23 @@
+[Unit]
+Description=Keep the dGPU out of runtime suspend while the power profile is "performance"
+After=power-profiles-daemon.service
+Wants=power-profiles-daemon.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/dgpu-perf-pin
+# Belt and braces: if the watcher dies without running its SIGTERM handler,
+# hand the card back to normal runtime PM anyway.
+ExecStopPost=/bin/sh -c 'for d in /sys/bus/pci/devices/*; do case "$(cat $d/class 2>/dev/null)" in 0x03*) [ "$(cat $d/boot_vga 2>/dev/null)" = 1 ] || echo auto > $d/power/control 2>/dev/null ;; esac; done; true'
+Restart=on-failure
+RestartSec=2
+# It only ever writes one sysfs attribute.
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/sys/devices
+PrivateTmp=yes
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
