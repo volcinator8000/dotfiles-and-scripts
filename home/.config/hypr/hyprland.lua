@@ -502,6 +502,14 @@ hl.window_rule({
 
 -- Update window opened from the waybar updates module
 hl.window_rule({
+    name = "float-tablet-test",
+    match = { title = "^tablet-test$" },
+    float = true,
+    center = true,
+    size = "900 560",
+})
+
+hl.window_rule({
     name = "float-system-update",
     match = { title = "^system-update$" },
     float = true,
