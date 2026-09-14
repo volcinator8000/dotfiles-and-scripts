@@ -285,6 +285,15 @@ hl.config({
         touchpad = {
             natural_scroll = true,
         },
+
+        -- Wacom Intuos BT S (CTL-4100WL). The kernel `wacom` driver + libinput
+        -- handle it natively on Wayland; no xf86-input-wacom needed.
+        tablet = {
+            output = "eDP-1",     -- pin the mapping to the laptop panel, not a
+                                  -- spanned desktop when HDMI is plugged in
+            left_handed = false,
+            relative_input = false, -- false = absolute (pen maps 1:1 to screen)
+        },
     },
 })
 
