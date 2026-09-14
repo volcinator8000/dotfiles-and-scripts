@@ -1,0 +1,80 @@
+[
+    {
+        "input_combination": [
+            {
+                "type": 1,
+                "code": 331,
+                "origin_hash": "2512d2a616261cce8d1230ce9aef2d96"
+            }
+        ],
+        "target_uinput": "keyboard",
+        "output_symbol": "KEY_F13",
+        "name": "pen lower barrel",
+        "mapping_type": "key_macro"
+    },
+    {
+        "input_combination": [
+            {
+                "type": 1,
+                "code": 332,
+                "origin_hash": "2512d2a616261cce8d1230ce9aef2d96"
+            }
+        ],
+        "target_uinput": "keyboard",
+        "output_symbol": "KEY_F14",
+        "name": "pen upper barrel",
+        "mapping_type": "key_macro"
+    },
+    {
+        "input_combination": [
+            {
+                "type": 1,
+                "code": 256,
+                "origin_hash": "a2b25c03fc73732fae6b5db3d2475db6"
+            }
+        ],
+        "target_uinput": "keyboard",
+        "output_symbol": "KEY_F15",
+        "name": "ExpressKey 1",
+        "mapping_type": "key_macro"
+    },
+    {
+        "input_combination": [
+            {
+                "type": 1,
+                "code": 257,
+                "origin_hash": "a2b25c03fc73732fae6b5db3d2475db6"
+            }
+        ],
+        "target_uinput": "keyboard",
+        "output_symbol": "KEY_F16",
+        "name": "ExpressKey 2",
+        "mapping_type": "key_macro"
+    },
+    {
+        "input_combination": [
+            {
+                "type": 1,
+                "code": 258,
+                "origin_hash": "a2b25c03fc73732fae6b5db3d2475db6"
+            }
+        ],
+        "target_uinput": "keyboard",
+        "output_symbol": "KEY_F17",
+        "name": "ExpressKey 3",
+        "mapping_type": "key_macro"
+    },
+    {
+        "input_combination": [
+            {
+                "type": 1,
+                "code": 259,
+                "origin_hash": "a2b25c03fc73732fae6b5db3d2475db6"
+            }
+        ],
+        "target_uinput": "keyboard",
+        "output_symbol": "KEY_F18",
+        "name": "ExpressKey 4",
+        "mapping_type": "key_macro"
+    }
+]

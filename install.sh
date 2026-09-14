@@ -104,6 +104,10 @@ LINK_FILES=(
     .config/systemd/user/dots-sync.service .config/systemd/user/dots-sync.timer
     .config/spicetify/Themes/Cybersigil
     Pictures/Wallpapers/cybersigil.png
+    # tablet button mappings; quoted because the device name has spaces. The
+    # autoload entry in input-remapper-2/config.json is NOT linked - that file
+    # is rewritten by the daemon, which would clobber a symlink.
+    ".config/input-remapper-2/presets/Wacom Intuos BT S Pen"
 )
 BACKUP="$HOME/.config-backup-$(date +%Y%m%d-%H%M%S)"
 link() {  # link <relative path>

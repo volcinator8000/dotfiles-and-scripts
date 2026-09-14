@@ -1131,8 +1131,8 @@ class TabletPage(Adw.PreferencesPage):
         self.btn_group.add(self.keys)
         self.pen_keys = Adw.ActionRow(
             title="Pen barrel buttons",
-            subtitle="handled by the drawing app, not the compositor - bind them in Krita under "
-                     "Settings > Configure Krita > Canvas Input Settings")
+            subtitle="mapped to F13/F14 by input-remapper, so they work system-wide · bind those "
+                     "keys in Hyprland or in any app · unmapped they are just right/middle click")
         self.btn_group.add(self.pen_keys)
         self.add(self.btn_group)
 
@@ -1282,9 +1282,9 @@ class TabletPage(Adw.PreferencesPage):
             self.status.set_title(t["name"])
             self.status.set_subtitle(f"{t['w']:.0f} x {t['h']:.0f} mm · {levels} · {bus}")
             self.keys.set_subtitle(
-                f"{t['keys']} key{'s' if t['keys'] != 1 else ''} on the pad · nothing is bound until "
-                "input-remapper grabs them · record shortcuts by pressing the keys, typed names are "
-                "US codes and the fr layout will mangle them" if t["keys"]
+                f"{t['keys']} key{'s' if t['keys'] != 1 else ''} on the pad, mapped to F15-F18 by "
+                "input-remapper · in its GUI the pad lives under the *Pen* entry, because it groups "
+                "both nodes under the shortest name" if t["keys"]
                 else "this tablet has no pad buttons")
             self.btn_group.set_visible(bool(t["keys"]))
         else:
