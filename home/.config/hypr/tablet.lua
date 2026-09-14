@@ -3,7 +3,7 @@
 hl.config({ input = {
     tablet = {
         output = "eDP-1",
-        left_handed = true,
+        left_handed = false,
         relative_input = false,
         -- proportions forced to eDP-1 (1.78:1)
         active_area_size     = { 152.0, 85.5 },
