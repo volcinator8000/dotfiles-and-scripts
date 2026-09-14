@@ -1,0 +1,13 @@
+[Unit]
+Description=Reapply the input-remapper preset for the drawing tablet
+After=input-remapper.service
+Wants=input-remapper.service
+
+[Service]
+Type=oneshot
+User=kali
+Group=kali
+Environment=HOME=/home/kali
+ExecStart=/home/kali/.local/bin/tablet-remap
+# the script retries for ~10 s waiting for the device to settle
+TimeoutStartSec=60

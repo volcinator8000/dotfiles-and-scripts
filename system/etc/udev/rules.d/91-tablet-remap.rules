@@ -1,0 +1,16 @@
+# Reapply the input-remapper preset when the drawing tablet reconnects.
+#
+# The Intuos BT sleeps after a few minutes idle and must re-initiate the
+# Bluetooth link itself (the host gets br-connection-create-socket if it tries),
+# so every wake is a fresh device add. input-remapper's own autoload usually
+# catches it, but not always - and it silently does nothing if the preset has
+# been emptied. tablet-remap repairs the preset and restarts injection.
+#
+# Match the PAD only, so this fires once per connect rather than per node, and
+# exclude input-remapper's own forwarded device - it carries the same name and
+# would retrigger this rule in a loop. It is told apart by phys:
+#   real       phys=f8:3d:c6:07:5f:2b        uniq=dc:2c:26:dc:c2:7e
+#   forwarded  phys=input-remapper/f8:3d...  uniq=""
+ACTION=="add", SUBSYSTEM=="input", KERNEL=="event*", \
+  ATTRS{name}=="Wacom* Pad", ATTRS{phys}!="input-remapper*", \
+  TAG+="systemd", ENV{SYSTEMD_WANTS}+="tablet-remap.service"

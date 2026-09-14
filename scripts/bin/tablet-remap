@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Reapply the input-remapper preset for the drawing tablet.
+#
+# Two things go wrong on their own:
+#   1. The tablet sleeps after a few minutes idle; its evdev nodes disappear and
+#      input-remapper logs "fd broke, was the device unplugged?" and stops.
+#   2. Opening the input-remapper GUI while the tablet is absent rewrites the
+#      preset as "[]", after which injection starts but logs
+#      "Did not grab any device" and every button falls through unmapped.
+#
+# So: repair the preset if it has been emptied, then (re)start injection.
+# Safe to run repeatedly - input-remapper skips a preset that is already loaded.
+set -uo pipefail
+
+REPO="${TABLET_REMAP_REPO:-$HOME/dotfiles-and-scripts}"
+DEVICE="Wacom Intuos BT S Pen"
+PRESET="barrel"
+REL="home/.config/input-remapper-2/presets/$DEVICE/$PRESET.json"
+FILE="$REPO/$REL"
+log() { printf '%s tablet-remap: %s\n' "$(date +%H:%M:%S)" "$*"; }
+
+# 1. preset sane?
+mappings=$(python3 - "$FILE" <<'PY' 2>/dev/null
+import json, sys
+try:
+    print(len(json.load(open(sys.argv[1]))))
+except Exception:
+    print(0)
+PY
+)
+if [[ "${mappings:-0}" -eq 0 ]]; then
+    log "preset is empty, restoring from git"
+    if git -C "$REPO" show "HEAD:$REL" > "$FILE.tmp" 2>/dev/null && [[ -s "$FILE.tmp" ]]; then
+        mv "$FILE.tmp" "$FILE"
+        log "restored $(python3 -c "import json,sys;print(len(json.load(open(sys.argv[1]))))" "$FILE") mappings"
+    else
+        rm -f "$FILE.tmp"
+        log "ERROR: could not restore from git, leaving it alone"
+        exit 1
+    fi
+fi
+
+# 2. is the tablet actually present? Ask the daemon, not /proc: input-remapper's
+#    own forwarded device carries the SAME name and lingers after the real tablet
+#    disconnects, so grepping /proc/bus/input/devices always says yes.
+#    Retry briefly: when this runs from udev the pad node can appear a moment
+#    before the pen node the preset also needs.
+present=0
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if input-remapper-control --list-devices 2>/dev/null | grep -qxF "$DEVICE"; then
+        present=1; break
+    fi
+    sleep 1
+done
+if [[ "$present" -eq 0 ]]; then
+    log "tablet not connected, nothing to do"
+    exit 0
+fi
+
+# 3. (re)start injection
+if out=$(input-remapper-control --device "$DEVICE" --preset "$PRESET" --command start 2>&1); then
+    log "injection started"
+else
+    log "injection failed: $(printf '%s' "$out" | tail -1)"
+    exit 1
+fi
