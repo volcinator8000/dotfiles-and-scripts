@@ -7,6 +7,7 @@ number. Position noise well under 0.05 mm means the tablet is solid and any
 wobble in your lines is the hand, not the hardware.
 
 Usage: tablet-jitter [/dev/input/eventN] [seconds]
+       tablet-jitter buttons        -- name every pen/pad button as you press it
 """
 import struct, sys, time, os, statistics as st
 
@@ -35,8 +36,80 @@ def find_pen():
     return None, None
 
 
+BUTTONS = {
+    0x110: "BTN_LEFT (pen tip / left click)",
+    0x111: "BTN_RIGHT",
+    0x112: "BTN_MIDDLE",
+    0x140: "BTN_TOOL_PEN (pen in range)",
+    0x14a: "BTN_TOUCH (tip pressed)",
+    0x14b: "BTN_STYLUS  <- lower barrel button",
+    0x14c: "BTN_STYLUS2 <- upper barrel button",
+    0x100: "BTN_0 <- ExpressKey 1",
+    0x101: "BTN_1 <- ExpressKey 2",
+    0x102: "BTN_2 <- ExpressKey 3",
+    0x103: "BTN_3 <- ExpressKey 4",
+}
+
+
+def find_nodes():
+    """Every '<name> Pen' / '<name> Pad' node, as [(path, name), ...]."""
+    out = []
+    for block in open("/proc/bus/input/devices").read().split("\n\n"):
+        name = node = None
+        for line in block.splitlines():
+            if line.startswith("N: Name="):
+                name = line.split("=", 1)[1].strip('"')
+            elif line.startswith("H: Handlers="):
+                node = next((t for t in line.split("=", 1)[1].split() if t.startswith("event")), None)
+        if name and node and (name.endswith(" Pen") or name.endswith(" Pad")):
+            out.append(("/dev/input/" + node, name))
+    return out
+
+
+def watch_buttons():
+    """Print every button press/release on the tablet until 20 s of silence."""
+    import select
+    nodes = find_nodes()
+    if not nodes:
+        sys.exit("no tablet found (is it awake and connected?)")
+    fds = {}
+    for path, name in nodes:
+        try:
+            f = open(path, "rb", buffering=0)
+        except PermissionError:
+            sys.exit(f"cannot read {path} -- you need to be in the 'input' group")
+        fds[f.fileno()] = (f, name)
+        print(f"watching {name:<26} {path}")
+    print("\n>>> Hold the pen near the tablet and press its two barrel buttons.")
+    print(">>> Then try the 4 keys on the tablet itself. Ctrl-C or 20 s idle to stop.\n")
+    seen, last = set(), time.time()
+    try:
+        while time.time() - last < 20:
+            ready, _, _ = select.select(list(fds), [], [], 1.0)
+            for fd in ready:
+                f, name = fds[fd]
+                data = f.read(SZ)
+                while data:
+                    _, _, typ, code, val = struct.unpack(FMT, data[:SZ])
+                    if typ == KEY and val in (0, 1):
+                        label = BUTTONS.get(code, f"code 0x{code:x}")
+                        print(f"  {name:<26} {'PRESS  ' if val else 'release'} {label}")
+                        seen.add((name, code, label))
+                        last = time.time()
+                    data = data[SZ:]
+    except KeyboardInterrupt:
+        pass
+    print("\n--- buttons seen ---")
+    if not seen:
+        print("  none -- the pen must be within a centimetre or two of the surface")
+    for name, code, label in sorted(seen, key=lambda x: (x[0], x[1])):
+        print(f"  {name:<26} 0x{code:03x}  {label}")
+
+
 def main():
     args = [a for a in sys.argv[1:]]
+    if args and args[0] == "buttons":
+        return watch_buttons()
     dev = next((a for a in args if a.startswith("/dev/")), None)
     dur = next((float(a) for a in args if not a.startswith("/dev/")), 8.0)
     name = None

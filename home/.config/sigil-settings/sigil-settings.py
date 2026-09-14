@@ -1126,8 +1126,14 @@ class TabletPage(Adw.PreferencesPage):
 
         self.btn_group = Adw.PreferencesGroup(title="Buttons")
         self.keys = Adw.ActionRow(title="ExpressKeys", subtitle="")
+        self.keys.add_suffix(self._button("Test", self.buttons))
         self.keys.add_suffix(self._button("Open input-remapper", self.remapper))
         self.btn_group.add(self.keys)
+        self.pen_keys = Adw.ActionRow(
+            title="Pen barrel buttons",
+            subtitle="handled by the drawing app, not the compositor - bind them in Krita under "
+                     "Settings > Configure Krita > Canvas Input Settings")
+        self.btn_group.add(self.pen_keys)
         self.add(self.btn_group)
 
         g = Adw.PreferencesGroup(title="Diagnostics")
@@ -1335,6 +1341,13 @@ class TabletPage(Adw.PreferencesPage):
             self.toast("input-remapper is not installed (paru -S input-remapper)")
             return
         spawn(["input-remapper-gtk"])
+
+    def buttons(self):
+        exe = shutil.which("tablet-jitter")
+        if not exe:
+            self.toast("tablet-jitter not found in PATH")
+            return
+        spawn(["kitty", "--title", "tablet-test", "-e", exe, "buttons"])
 
     def jitter(self):
         exe = shutil.which("tablet-jitter")
