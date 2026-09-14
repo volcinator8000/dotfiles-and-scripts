@@ -101,6 +101,7 @@ LINK_FILES=(
     .config/gtk-3.0/gtk.css .config/gtk-4.0/gtk.css
     .local/share/color-schemes/Cybersigil.colors
     .local/share/applications/sigil-settings.desktop
+    .local/share/applications/org.kde.krita.desktop
     .config/systemd/user/dots-sync.service .config/systemd/user/dots-sync.timer
     .config/spicetify/Themes/Cybersigil
     Pictures/Wallpapers/cybersigil.png
