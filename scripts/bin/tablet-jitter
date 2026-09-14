@@ -48,11 +48,22 @@ BUTTONS = {
     0x101: "BTN_1 <- ExpressKey 2",
     0x102: "BTN_2 <- ExpressKey 3",
     0x103: "BTN_3 <- ExpressKey 4",
+    183: "KEY_F13  <- pen lower barrel, remapped",
+    184: "KEY_F14  <- pen upper barrel, remapped",
+    185: "KEY_F15  <- ExpressKey 1, remapped",
+    186: "KEY_F16  <- ExpressKey 2, remapped",
+    187: "KEY_F17  <- ExpressKey 3, remapped",
+    188: "KEY_F18  <- ExpressKey 4, remapped",
 }
 
 
 def find_nodes():
-    """Every '<name> Pen' / '<name> Pad' node, as [(path, name), ...]."""
+    """Tablet nodes plus any input-remapper virtual device.
+
+    With input-remapper injecting, the real pen/pad are grabbed (reading them yields
+    nothing) and the remapped buttons are consumed rather than forwarded - they come
+    out of the "input-remapper ..." uinput device instead. Watch everything, or a
+    remapped button looks like a dead button."""
     out = []
     for block in open("/proc/bus/input/devices").read().split("\n\n"):
         name = node = None
@@ -61,7 +72,9 @@ def find_nodes():
                 name = line.split("=", 1)[1].strip('"')
             elif line.startswith("H: Handlers="):
                 node = next((t for t in line.split("=", 1)[1].split() if t.startswith("event")), None)
-        if name and node and (name.endswith(" Pen") or name.endswith(" Pad")):
+        if not (name and node):
+            continue
+        if name.endswith(" Pen") or name.endswith(" Pad") or name.startswith("input-remapper"):
             out.append(("/dev/input/" + node, name))
     return out
 
@@ -73,13 +86,16 @@ def watch_buttons():
     if not nodes:
         sys.exit("no tablet found (is it awake and connected?)")
     fds = {}
+    seen_names = {}
     for path, name in nodes:
         try:
             f = open(path, "rb", buffering=0)
         except PermissionError:
             sys.exit(f"cannot read {path} -- you need to be in the 'input' group")
-        fds[f.fileno()] = (f, name)
-        print(f"watching {name:<26} {path}")
+        seen_names[name] = seen_names.get(name, 0) + 1
+        label = name if seen_names[name] == 1 else f"{name} #{seen_names[name]}"
+        fds[f.fileno()] = (f, label)
+        print(f"watching {label:<32} {path}")
     print("\n>>> Hold the pen near the tablet and press its two barrel buttons.")
     print(">>> Then try the 4 keys on the tablet itself. Ctrl-C or 20 s idle to stop.\n")
     seen, last = set(), time.time()
@@ -93,7 +109,7 @@ def watch_buttons():
                     _, _, typ, code, val = struct.unpack(FMT, data[:SZ])
                     if typ == KEY and val in (0, 1):
                         label = BUTTONS.get(code, f"code 0x{code:x}")
-                        print(f"  {name:<26} {'PRESS  ' if val else 'release'} {label}")
+                        print(f"  {name:<32} {'PRESS  ' if val else 'release'} {label}")
                         seen.add((name, code, label))
                         last = time.time()
                     data = data[SZ:]
@@ -103,7 +119,7 @@ def watch_buttons():
     if not seen:
         print("  none -- the pen must be within a centimetre or two of the surface")
     for name, code, label in sorted(seen, key=lambda x: (x[0], x[1])):
-        print(f"  {name:<26} 0x{code:03x}  {label}")
+        print(f"  {name:<32} 0x{code:03x}  {label}")
 
 
 def main():
