@@ -55,7 +55,7 @@ hl.on("hyprland.start", function ()
     hl.exec_cmd("kdeconnect-indicator") -- phone link (KDE Connect): notifications, clipboard, files, media; tray icon
     hl.exec_cmd("playerctld daemon") -- follows the most recently active media player (bar title + lyrics)
     hl.exec_cmd("hypridle")
-    hl.exec_cmd("swaync")
+    hl.exec_cmd("systemctl --user start swaync") -- via the unit: same target as D-Bus activation (no double launch), Restart=on-failure
     hl.exec_cmd("hyprexpose")
     hl.exec_cmd("~/.config/keysound/keysound.sh start") -- typewriter key sounds
     hl.exec_cmd("wl-paste --type text --watch cliphist store")  -- clipboard history (SUPER+SHIFT+V)

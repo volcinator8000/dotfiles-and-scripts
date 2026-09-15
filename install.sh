@@ -103,6 +103,7 @@ LINK_FILES=(
     .local/share/applications/sigil-settings.desktop
     .local/share/applications/org.kde.krita.desktop
     .config/systemd/user/dots-sync.service .config/systemd/user/dots-sync.timer
+    .config/systemd/user/swaync.service.d/override.conf
     .config/spicetify/Themes/Cybersigil
     Pictures/Wallpapers/cybersigil.png
     # tablet button mappings; quoted because the device name has spaces. The

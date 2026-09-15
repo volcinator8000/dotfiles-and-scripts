@@ -1,4 +1,5 @@
 # Runtime power management for every PCI and USB device (what powertop --auto-tune / TLP do).
 # The dGPU already had it; this covers the wifi, audio, nvme, xhci, sensors... 22 devices were left "on".
-ACTION=="add", SUBSYSTEM=="pci", ATTR{power/control}="auto"
-ACTION=="add", SUBSYSTEM=="usb", ATTR{power/control}="auto"
+# TEST guards: USB root-hub interfaces (usbN/N-0:1.0) have no power/control, udev would log an error per hub.
+ACTION=="add", SUBSYSTEM=="pci", TEST=="power/control", ATTR{power/control}="auto"
+ACTION=="add", SUBSYSTEM=="usb", TEST=="power/control", ATTR{power/control}="auto"
