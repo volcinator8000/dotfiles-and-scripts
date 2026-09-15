@@ -1,0 +1,5 @@
+# earlyoom: kill the single largest process before the box swaps itself to death
+# (2026-09-15: ZZZ exhausted 14 GB RAM with no OOM kill; the desktop stalled).
+# -m 3   act when free RAM < 3 %      -s 70  ...and free swap < 70 %, i.e. once the 7.4G zram is full and the 16G disk swapfile starts filling
+# --prefer: Windows games under Proton / wine   --avoid: the session itself
+EARLYOOM_ARGS="-m 3 -s 70 -r 0 --prefer '([.]exe|wine|ZenlessZoneZero|wine-preloader|wineserver)' --avoid '^(Hyprland|start-hyprland|waybar|swaync|hypridle|hyprlock|hyprpaper|kitty|pipewire|wireplumber|Xwayland)$'"

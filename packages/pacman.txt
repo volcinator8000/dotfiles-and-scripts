@@ -15,5 +15,5 @@ noto-fonts noto-fonts-cjk noto-fonts-emoji noto-fonts-extra
 dolphin pavucontrol blueman bluez bluez-utils network-manager-applet networkmanager
 pipewire pipewire-pulse wireplumber btop
 # safety nets
-snapper snap-pac zram-generator ufw
+snapper snap-pac zram-generator ufw earlyoom
 git base-devel

@@ -20,4 +20,6 @@ NoNewPrivileges=yes
 RestrictAddressFamilies=AF_UNIX
 
 [Install]
-WantedBy=multi-user.target
+# graphical.target, not multi-user: power-profiles-daemon is ordered After=multi-user.target, so
+# After=ppd + WantedBy=multi-user was an ordering cycle and systemd dropped this unit every boot.
+WantedBy=graphical.target
