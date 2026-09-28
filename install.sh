@@ -188,7 +188,13 @@ if (( ! SKIP_SYSTEM )); then
             warn "skipping $rel: no AMD dGPU at 01:00.0 (that rule is for the RX 6500M laptop)"; continue
         fi
         if ! sudo cmp -s "$f" "/etc/$rel" 2>/dev/null; then
-            run sudo install -Dm644 "$f" "/etc/$rel"; ok "/etc/$rel"
+            if [[ "$rel" == sudoers.d/* ]]; then   # sudo ignores sudoers.d files that are not 0440
+                run sudo visudo -cqf "$f" || { warn "bad sudoers file $f, not installed"; continue; }
+                run sudo install -Dm440 "$f" "/etc/$rel"
+            else
+                run sudo install -Dm644 "$f" "/etc/$rel"
+            fi
+            ok "/etc/$rel"
         fi
     done < <(find system/etc -type f | sort)
     if [[ -d system/usr ]]; then

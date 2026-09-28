@@ -24,6 +24,8 @@ KS_SH = os.path.join(KS, "keysound.sh")
 KEEPAWAKE = os.path.join(CFG, "swaync", "keepawake.sh")
 NIGHTLIGHT = os.path.join(CFG, "swaync", "nightlight.sh")
 HYPRIDLE = os.path.join(CFG, "hypr", "hypridle.conf")
+LOCK_SH = os.path.join(CFG, "hypr", "scripts", "lock.sh")
+ULTRA = os.path.join(HOME, ".local", "bin", "ultra")
 HYPRPAPER = os.path.join(CFG, "hypr", "hyprpaper.conf")
 HYPRLOCK = os.path.join(CFG, "hypr", "hyprlock.conf")
 HYPRSUNSET = os.path.join(CFG, "hypr", "hyprsunset.conf")
@@ -496,6 +498,36 @@ class PowerPage(Adw.PreferencesPage):
         self.pa_bright.connect("notify::value", lambda *_: self.write_power_auto()); g.add(self.pa_bright)
         self.add(g)
 
+        g = Adw.PreferencesGroup(title="Ultra power saver",
+                                 description="Focus mode: no effects, lowest refresh rate, minimal bar, short idle timers, "
+                                             "chat apps closed, bluetooth off. SUPER+SHIFT+U or `ultra` in a terminal; everything comes back on exit.")
+        self.ultra_sw = Adw.SwitchRow(title="Ultra mode now", subtitle="takes a second or two either way")
+        self.ultra_sw.set_active(run([ULTRA, "state"]) == "true")
+        self.ultra_sw.connect("notify::active", self.on_ultra)
+        g.add(self.ultra_sw)
+        self.u_exit_ac = Adw.SwitchRow(title="Leave when the charger is plugged in")
+        self.u_exit_ac.set_active(pa.get("ultra_exit_on_ac", "true") != "false"); g.add(self.u_exit_ac)
+        self.u_at = spin("Enter automatically below", "battery percent, 0 = never", int(pa.get("ultra_at_pct", "0") or 0), 0, 60, 5); g.add(self.u_at)
+        self.u_bright = spin("Backlight cap", "percent on entering", int(pa.get("ultra_brightness", "30") or 30), 5, 100, 5); g.add(self.u_bright)
+        self.u_refresh = Adw.SwitchRow(title="Lowest refresh rate", subtitle="switch the panel to its slowest mode (40 Hz here); back to hyprland.lua on exit")
+        self.u_refresh.set_active(pa.get("ultra_refresh", "true") != "false"); g.add(self.u_refresh)
+        self.u_bt = Adw.SwitchRow(title="Bluetooth off", subtitle="powered back on when leaving if it was on")
+        self.u_bt.set_active(pa.get("ultra_bluetooth_off", "true") != "false"); g.add(self.u_bt)
+        self.u_apps = Adw.EntryRow(title="Apps to close (space separated, relaunched on exit)")
+        self.u_apps.set_text(pa.get("ultra_quit_apps", "vesktop slack spotify")); g.add(self.u_apps)
+        helper = run(["sudo", "-n", "/usr/local/bin/sigil-powerctl", "status"])
+        self.u_mhz = spin("CPU clock cap", "MHz, root helper" + ("" if helper else " (not installed)"), int(pa.get("ultra_max_mhz", "2400") or 2400), 800, 5000, 100); g.add(self.u_mhz)
+        self.u_abm = spin("Panel power saving (ABM)", "amdgpu adaptive backlight 0-4, root helper" + ("" if helper else " (not installed)"),
+                          int(pa.get("ultra_abm", "3") or 3), 0, 4, 1); g.add(self.u_abm)
+        if not helper:
+            g.add(Adw.ActionRow(title="Root helper not installed", subtitle="the clock cap and ABM need system/usr/local/bin/sigil-powerctl + system/etc/sudoers.d (install.sh does both)"))
+        for r in (self.u_exit_ac, self.u_refresh, self.u_bt):
+            r.connect("notify::active", lambda *_: self.write_power_auto())
+        for r in (self.u_at, self.u_bright, self.u_mhz, self.u_abm):
+            r.connect("notify::value", lambda *_: self.write_power_auto())
+        self.u_apps.connect("changed", lambda *_: self.write_power_auto())
+        self.add(g)
+
         g = Adw.PreferencesGroup(title="Display")
         b = run(["brightnessctl", "-m"]).split(",")
         cur_b = float(b[3].rstrip("%")) if len(b) > 3 else 100
@@ -542,6 +574,9 @@ class PowerPage(Adw.PreferencesPage):
         n = run([NIGHTLIGHT, "state"]) == "true"; self.app.night_cache = n
         if self.night.get_active() != n:
             self.night.handler_block_by_func(self.on_night); self.night.set_active(n); self.night.handler_unblock_by_func(self.on_night)
+        u = run([ULTRA, "state"]) == "true"
+        if self.ultra_sw.get_active() != u:
+            self.ultra_sw.handler_block_by_func(self.on_ultra); self.ultra_sw.set_active(u); self.ultra_sw.handler_unblock_by_func(self.on_ultra)
 
     PA = os.path.join(CFG, "hypr", "power-auto.conf")
 
@@ -553,13 +588,29 @@ class PowerPage(Adw.PreferencesPage):
         return d
 
     def write_power_auto(self):
-        if not self.profiles:
-            return
+        if not self.profiles or not hasattr(self, "u_apps"):
+            return  # still building the page
+        d = self.read_power_auto()  # keep keys this page does not know about
+        d.update({"enabled": "true" if self.pa_enabled.get_active() else "false",
+                  "on_battery": self.profiles[self.pa_bat.get_selected()], "on_ac": self.profiles[self.pa_ac.get_selected()],
+                  "eco_effects": "true" if self.pa_eco.get_active() else "false", "eco_brightness": str(int(self.pa_bright.get_value())),
+                  "ultra_exit_on_ac": "true" if self.u_exit_ac.get_active() else "false", "ultra_at_pct": str(int(self.u_at.get_value())),
+                  "ultra_brightness": str(int(self.u_bright.get_value())), "ultra_refresh": "true" if self.u_refresh.get_active() else "false",
+                  "ultra_max_mhz": str(int(self.u_mhz.get_value())), "ultra_abm": str(int(self.u_abm.get_value())),
+                  "ultra_bluetooth_off": "true" if self.u_bt.get_active() else "false",
+                  "ultra_quit_apps": " ".join(self.u_apps.get_text().split())})
+        eco_keys = ("enabled", "on_battery", "on_ac", "eco_effects", "eco_brightness")
         with open(self.PA, "w") as f:
-            f.write("# automatic power profile on charger events (read by waybar/scripts/battery.sh every 10 s; edit in the settings app)\n"
-                    f"enabled={'true' if self.pa_enabled.get_active() else 'false'}\n"
-                    f"on_battery={self.profiles[self.pa_bat.get_selected()]}\non_ac={self.profiles[self.pa_ac.get_selected()]}\n"
-                    f"eco_effects={'true' if self.pa_eco.get_active() else 'false'}\neco_brightness={int(self.pa_bright.get_value())}\n")
+            f.write("# automatic power profile + eco mode on charger events (read by waybar/scripts/battery.sh every 10 s; edit in the settings app)\n"
+                    "# eco_effects=true: blur/shadows off on battery (iGPU work); eco_brightness=N: cap the backlight at N% when unplugging (0 = off)\n")
+            f.writelines(f"{k}={d[k]}\n" for k in eco_keys)
+            f.write("# ultra power saver mode (~/.local/bin/ultra; settings app > Power > Ultra power saver)\n")
+            f.writelines(f"{k}={v}\n" for k, v in d.items() if k not in eco_keys)
+
+    def on_ultra(self, row, _):
+        on = row.get_active()
+        self.toast("Entering ultra power saver…" if on else "Leaving ultra power saver…")
+        run_async([ULTRA, "on" if on else "off"], lambda out, rc: self.toast(out.splitlines()[-1] if out else ("done" if rc == 0 else "ultra failed")), timeout=30)
 
     def on_profile(self, row, _):
         if self.profiles:
@@ -657,7 +708,7 @@ class PowerPage(Adw.PreferencesPage):
     def apply_idle(self):
         dim, lock, off, sleep = (int(round(r.get_value() * 60)) for r in (self.dim, self.lock, self.off, self.sleep))
         level = int(self.dim_level.get_value())
-        parts = ["general {", "    # plain hyprlock: a stale/hung hyprlock must not block re-locking", "    lock_cmd = hyprlock",
+        parts = ["general {", "    # plain hyprlock: a stale/hung hyprlock must not block re-locking", f"    lock_cmd = {LOCK_SH}",
                  "    before_sleep_cmd = loginctl lock-session", "    after_sleep_cmd = hyprctl dispatch 'hl.dsp.dpms(\"on\")'",
                  "    inhibit_sleep = 3   # delay suspend until the lock screen is drawn", "}", "",
                  "# generated by sigil-settings; edit there or by hand (timeouts in seconds)"]

@@ -30,6 +30,7 @@ case "${1:-help}" in
     mute)       wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle; wpctl get-volume @DEFAULT_AUDIO_SINK@ ;;
     bright|brightness) if [ -n "$2" ]; then brightnessctl -q set "$2%"; fi; brightnessctl -m | cut -d, -f4 ;;
     profile)    if [ -n "$2" ]; then powerprofilesctl set "$2"; fi; powerprofilesctl get ;;
+    ultra)      ~/.local/bin/ultra "${2:-toggle}"; [ "${2:-}" = status ] || echo "ultra: $(~/.local/bin/ultra state)" ;;
     awake)      ~/.config/swaync/keepawake.sh "${2:-toggle}"; echo "keep-awake: $(~/.config/swaync/keepawake.sh state)" ;;
     night)      ~/.config/swaync/nightlight.sh "${2:-toggle}"; echo "night light: $(~/.config/swaync/nightlight.sh state)" ;;
     shot|screenshot)  # full screen -> file, and sent to the phone via Taildrop if it is online
@@ -59,6 +60,7 @@ ${B}remote${N} — control the laptop from your phone
   ${G}play${N} / ${G}next${N} / ${G}prev${N} / ${G}np${N}   media          ${G}vol${N} [0-100] / ${G}mute${N}
   ${G}bright${N} [1-100]    screen brightness      ${G}night${N} [on|off]   night light
   ${G}profile${N} [name]    power profile          ${G}ws${N} N              focus workspace N
+  ${G}ultra${N} [on|off|status]  ultra power saver / focus mode (toggle by default)
   ${G}windows${N}           list open windows      ${G}run${N} cmd           launch on the laptop
   ${G}open${N} URL          open in the browser    ${G}type${N} text / ${G}key${N} k   fake input
   ${G}shot${N}              screenshot -> file + phone (Taildrop)

@@ -27,6 +27,7 @@ esac
 # ── sound events on state changes (plug / unplug / battery low), state kept in the runtime dir ──
 ST="${XDG_RUNTIME_DIR:-/tmp}/battery-state"; prev=$(cat "$ST" 2>/dev/null); KS=~/.config/keysound/keysound.sh
 PA=~/.config/hypr/power-auto.conf; pa() { sed -n "s/^$1=//p" "$PA" 2>/dev/null; }
+ULTRA=~/.local/bin/ultra; ultra_on() { [ -f "${XDG_RUNTIME_DIR:-/tmp}/ultra/active" ]; }
 eco() {  # eco on|off : compositor eye-candy costs iGPU power; brightness cap on unplug
     if [ "$(pa eco_effects)" = true ]; then
         if [ "$1" = on ]; then hyprctl eval 'hl.config({ decoration = { blur = { enabled = false }, shadow = { enabled = false } } })' >/dev/null 2>&1   # Lua build: keyword is refused, eval works
@@ -38,8 +39,12 @@ if [ -n "$prev" ] && [ "$prev" != "$state" ]; then
     case "$state" in
         charging|fully-charged|pending-charge)
             [ "$prev" = discharging ] && { "$KS" play plug
+                # ultra mode: leave it first (its reload restores the desktop), then the charger profile wins
+                if ultra_on; then
+                    if [ "$(pa ultra_exit_on_ac)" != false ]; then setsid -f "$ULTRA" off --keep-profile >/dev/null 2>&1 </dev/null; sleep 2; fi   # detached: it kills this waybar
+                fi
                 if [ "$(pa enabled)" = true ] && [ -n "$(pa on_ac)" ]; then powerprofilesctl set "$(pa on_ac)" 2>/dev/null && notify-send -a power -i battery-good-charging "Charger connected" "profile: $(pa on_ac)"; fi
-                eco off; } ;;
+                ultra_on || eco off; } ;;   # still in ultra (exit_on_ac=false): a reload would undo it
         discharging)
             "$KS" play unplug
             if [ "$(pa enabled)" = true ] && [ -n "$(pa on_battery)" ]; then powerprofilesctl set "$(pa on_battery)" 2>/dev/null && notify-send -a power -i battery-good "On battery" "profile: $(pa on_battery)"; fi
@@ -47,6 +52,11 @@ if [ -n "$prev" ] && [ "$prev" != "$state" ]; then
     esac
 fi
 echo "$state" > "$ST"
+# ultra mode below a percentage (ultra_at_pct, 0 = never); once per discharge cycle
+UAT=$(pa ultra_at_pct); UF="${XDG_RUNTIME_DIR:-/tmp}/ultra-auto-entered"
+if [ "$state" = discharging ] && [ "${UAT:-0}" -gt 0 ] 2>/dev/null && (( pct <= UAT )); then
+    if ! ultra_on && [ ! -f "$UF" ]; then touch "$UF"; setsid -f "$ULTRA" on >/dev/null 2>&1 </dev/null; fi   # detached: it kills this waybar
+elif [ "$state" != discharging ]; then rm -f "$UF"; fi
 LOW="${XDG_RUNTIME_DIR:-/tmp}/battery-low-warned"
 if [ "$state" = discharging ] && (( pct <= 15 )); then
     [ -f "$LOW" ] || { "$KS" play batt-low; notify-send -u critical -a battery -i battery-caution "Battery ${pct}%" "$line"; touch "$LOW"; }

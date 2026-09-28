@@ -1,0 +1,75 @@
+{
+    // ultra power saver bar (launched by `ultra on`): no pollers except the battery widget,
+    // which is the one that notices the charger and leaves the mode (ultra_exit_on_ac).
+    "layer": "top",
+    "position": "top",
+    "mode": "dock",
+    "exclusive": true,
+    "height": 40,
+    "spacing": 0,
+
+    "modules-left":   ["custom/os_button", "hyprland/window"],
+    "fixed-center": false,
+    "modules-center": [],
+    "modules-right":  ["hyprland/workspaces", "custom/ultra", "clock", "network", "custom/battery", "custom/power"],
+
+    "custom/os_button": {
+        "format": "",
+        "tooltip": false,
+        "on-click": "rofi -show drun",
+        "on-click-right": "python3 ~/.config/sigil-settings/sigil-settings.py"
+    },
+    "hyprland/window": {
+        "format": "{title}",
+        "max-length": 40,
+        "separate-outputs": true,
+        "rewrite": { "^$": "" }
+    },
+    "hyprland/workspaces": {
+        "format": "{icon}",
+        "format-icons": { "default": "○", "active": "◉", "urgent": "◈", "special": "◇" },
+        "all-outputs": true,
+        "disable-scroll": true,
+        "on-click": "activate",
+        "persistent-workspaces": { "*": 3 }
+    },
+    "custom/ultra": {
+        "exec": "~/.local/bin/ultra json",
+        "return-type": "json",
+        "interval": 60,
+        "signal": 12,
+        "format": "{}",
+        "tooltip": true,
+        "on-click": "~/.local/bin/ultra off"
+    },
+    "clock": {
+        "interval": 60,
+        "format": "{:%H:%M}",
+        "format-alt": "{:%a %d %b %Y}",
+        "tooltip": false
+    },
+    "network": {
+        "interval": 30,
+        "format-wifi": "{icon} {signalStrength}%",
+        "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
+        "format-ethernet": "󰈀",
+        "format-linked": "󰤫",
+        "format-disconnected": "󰤮",
+        "tooltip-format-wifi": "{essid}\n{ipaddr}",
+        "tooltip-format-disconnected": "disconnected",
+        "on-click": "nm-connection-editor"
+    },
+    "custom/battery": {
+        "exec": "~/.config/waybar/scripts/battery.sh",
+        "return-type": "json",
+        "interval": 10,
+        "format": "{}",
+        "tooltip": true,
+        "on-click": "sh -c 'python3 ~/.config/sigil-settings/sigil-settings.py --page power'"
+    },
+    "custom/power": {
+        "format": "⏻",
+        "tooltip": false,
+        "on-click": "wlogout --protocol layer-shell"
+    }
+}

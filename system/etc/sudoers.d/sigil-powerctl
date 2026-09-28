@@ -1,0 +1,3 @@
+# ultra power saver mode: the root half (CPU boost / clock cap / panel ABM) without a password prompt.
+# Installed with mode 0440 by install.sh; sudo ignores sudoers.d files with any other mode.
+kali ALL=(root) NOPASSWD: /usr/local/bin/sigil-powerctl

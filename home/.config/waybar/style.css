@@ -126,6 +126,8 @@ tooltip label { color: @text; }
 #custom-battery.critical { color: @red; animation: blink 0.5s linear infinite alternate; }
 
 #custom-keepawake    { color: @amber; font-size: 15px; text-shadow: 0 0 8px alpha(@amber, 0.7); }
+#custom-ultra        { color: @green; letter-spacing: 0.12em; text-shadow: 0 0 8px alpha(@green, 0.7); }
+#custom-ultra.off    { padding: 0; border: none; min-width: 0; }
 #custom-notification { color: @amber; font-size: 15px; }
 #custom-notification.none, #custom-notification.dnd-none, #custom-notification.inhibited-none,
 #custom-notification.dnd-inhibited-none { color: @muted; }

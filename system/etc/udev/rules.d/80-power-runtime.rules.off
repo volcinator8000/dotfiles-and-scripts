@@ -1,0 +1,8 @@
+# DISABLED 2026-09-22 (renamed .off, udev ignores it): installed on 2026-09-15 18:33, and the machine has
+# ended every boot since with a hang or a "data fabric sync flood" reset. The original rule put EVERY PCI
+# function into runtime PM, including driverless fabric-level ones (IOMMU 00:00.2, LPC bridge 00:14.3).
+# The dGPU does not need it: pcieport already runtime-allows its bridge chain and amdgpu allows itself.
+# If it is ever re-enabled (rename back, one thing at a time), this narrowed version only touches
+# endpoints that have a driver bound and skips bridges/host functions.
+ACTION=="add", SUBSYSTEM=="pci", DRIVER!="", ATTR{class}!="0x06*", ATTR{class}!="0x08*", TEST=="power/control", ATTR{power/control}="auto"
+ACTION=="add", SUBSYSTEM=="usb", TEST=="power/control", ATTR{power/control}="auto"

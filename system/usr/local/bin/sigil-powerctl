@@ -1,0 +1,41 @@
+#!/bin/bash
+# sigil-powerctl: the root half of `ultra` (ultra power saver mode). Runs through a sudoers
+# NOPASSWD rule, so it takes a fixed set of verbs and range-checked integers only.
+#
+#   ultra on <max_mhz> <abm>   CPU boost off, every core capped at max_mhz, panel ABM level
+#                              (amdgpu adaptive backlight, 0-4: dims the backlight and
+#                              compensates with contrast), dGPU back to runtime PM
+#   ultra off                  boost on, caps lifted, ABM 0
+#   status                     one line with the current values
+set -u
+CPUS=/sys/devices/system/cpu
+w() { [ -w "$1" ] && printf '%s' "$2" > "$1" 2>/dev/null; }
+int_in() { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge "$2" ] && [ "$1" -le "$3" ]; }
+panels() { ls /sys/class/drm/card*-eDP-*/amdgpu/panel_power_savings 2>/dev/null; }
+
+case "${1:-} ${2:-}" in
+    "ultra on")
+        mhz=${3:-2400}; abm=${4:-3}
+        int_in "$mhz" 800 6000 || { echo "max_mhz out of range (800-6000)"; exit 2; }
+        int_in "$abm" 0 4      || { echo "abm out of range (0-4)"; exit 2; }
+        w $CPUS/cpufreq/boost 0
+        for c in $CPUS/cpu[0-9]*/cpufreq; do
+            lo=$(cat "$c/cpuinfo_min_freq"); hi=$(cat "$c/cpuinfo_max_freq"); f=$((mhz * 1000))
+            [ "$f" -lt "$lo" ] && f=$lo; [ "$f" -gt "$hi" ] && f=$hi
+            w "$c/scaling_max_freq" "$f"
+        done
+        for p in $(panels); do w "$p" "$abm"; done
+        for d in /sys/bus/pci/devices/*; do   # any non-boot amdgpu display device: normal runtime PM
+            case "$(cat "$d/class" 2>/dev/null)" in 0x03*) ;; *) continue ;; esac
+            [ "$(cat "$d/boot_vga" 2>/dev/null)" = 1 ] && continue
+            [[ "$(readlink -f "$d/driver" 2>/dev/null)" == *amdgpu* ]] && w "$d/power/control" auto
+        done ;;
+    "ultra off")
+        w $CPUS/cpufreq/boost 1
+        for c in $CPUS/cpu[0-9]*/cpufreq; do w "$c/scaling_max_freq" "$(cat "$c/cpuinfo_max_freq")"; done
+        for p in $(panels); do w "$p" 0; done ;;
+    "status "|status*)
+        printf 'boost=%s max=%sMHz abm=%s\n' "$(cat $CPUS/cpufreq/boost 2>/dev/null)" \
+            "$(( $(cat $CPUS/cpu0/cpufreq/scaling_max_freq) / 1000 ))" "$(cat $(panels | head -1) 2>/dev/null)" ;;
+    *) echo "usage: sigil-powerctl ultra on <max_mhz> <abm> | ultra off | status"; exit 2 ;;
+esac

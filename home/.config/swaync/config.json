@@ -59,6 +59,7 @@
       ]
     },
     "buttons-grid": {
+      "buttons-per-row": 6,
       "actions": [
         {
           "label": "󰖩",
@@ -110,6 +111,13 @@
           "update-command": "sh -c '~/.config/keysound/keysound.sh state; sleep 0.2'"
         },
         {
+          "label": "󰌪",
+          "type": "toggle",
+          "active": false,
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && ~/.config/keysound/keysound.sh play toggle-on || ~/.config/keysound/keysound.sh play toggle-off; swaync-client -cp; [[ $SWAYNC_TOGGLE_STATE == true ]] && setsid -f ~/.local/bin/ultra on || setsid -f ~/.local/bin/ultra off; sleep 0.2'",
+          "update-command": "sh -c '~/.local/bin/ultra state; sleep 0.2'"
+        },
+        {
           "label": "󰅇",
           "command": "sh -c '~/.config/keysound/keysound.sh play click; swaync-client -cp; ~/.config/rofi/clip.sh; sleep 0.2'"
         },
@@ -120,6 +128,11 @@
         {
           "label": "⏻",
           "command": "sh -c '~/.config/keysound/keysound.sh play click; wlogout --protocol layer-shell; sleep 0.2'"
+        },
+        {
+          "label": "󰒓",
+          "type": "button",
+          "command": "sh -c '~/.config/keysound/keysound.sh play click; swaync-client -cp; python3 ~/.config/sigil-settings/sigil-settings.py --toggle; sleep 0.2'"
         }
       ]
     }

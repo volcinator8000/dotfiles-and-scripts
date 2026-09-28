@@ -60,6 +60,24 @@ dots add -A && dots commit -m "..."
 dots push
 ```
 
+## Ultra power saver (focus mode)
+
+`ultra on|off|toggle|status` (`scripts/bin/ultra`, also SUPER+SHIFT+U, the Power page of the
+settings app, `remote ultra` from the phone). Strips the session down to what is needed to
+work and hands the battery back: animations, blur, shadows, rounding and the inactive fade
+off, hardware cursor, panel at its lowest refresh mode (40 Hz), wallpaper daemon gone, a
+minimal bar (`waybar/config-ultra.jsonc`), dim 30 s / lock 2 min / screen off 3 min /
+suspend 5 min, key sounds and night light stopped, power-saver profile, backlight capped,
+bluetooth off, and the chat/music apps closed (relaunched on exit). Knobs are the `ultra_*`
+keys in `hypr/power-auto.conf`; `battery.sh` leaves the mode when the charger is plugged and
+can enter it below a percentage. `ultra off` restores everything through `hyprctl reload`;
+nothing persists across a reboot.
+
+The root half is optional: `system/usr/local/bin/sigil-powerctl` (CPU boost off, clock cap,
+amdgpu panel ABM) with the NOPASSWD rule in `system/etc/sudoers.d/`, both installed by
+`install.sh` (sudoers files go in with mode 0440 after a `visudo -c`). Without it `ultra`
+just says so and does the rest.
+
 ## Machine-specific bits
 
 Written on an HP laptop with a Ryzen 7535HS (680M iGPU) + RX 6500M dGPU, AZERTY
@@ -68,5 +86,6 @@ keyboard, 1920x1080 panel. Things that assume that hardware:
 - `waybar/scripts/gpu.sh` reads `card1` runtime-PM status (never poll amdgpu sysfs stats on a short interval, it wakes the card)
 - backlight device `amdgpu_bl2` in swaync's backlight widget
 - `system/etc/udev/rules.d/90-dgpu-no-wakeup.rules` names PCI addresses; the installer only applies it if an AMD GPU sits at `01:00.0`
+- `system/etc/udev/rules.d/80-power-runtime.rules.off` and `dgpu-perf-pin.service` are suspects in the 2026-09-15..22 freeze / "data fabric sync flood" incident (see the memory notes); the rule stays disabled and the service should stay off until the machine has been stable for a while, then re-enable one at a time
 - hibernation needs a resume offset and a kernel command line edit; `--hibernate` runs the interactive script
 - `hyprland.lua` uses the Hyprland ≥ 0.56 Lua API, and `hyprctl dispatch` takes Lua syntax on that build

@@ -371,6 +371,7 @@ hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play 
 hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("~/.config/rofi/clip.sh")) -- clipboard history
 hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play open; rofi -show emoji")) -- emoji picker (rofi-emoji)
 hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("python3 ~/.config/sigil-settings/sigil-settings.py --toggle")) -- settings applet (resident, toggles)
+hl.bind(mainMod .. " + SHIFT + U", hl.dsp.exec_cmd("~/.local/bin/ultra toggle")) -- ultra power saver / focus mode (see scripts/bin/ultra)
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
 hl.bind(mainMod .. " + T", hl.dsp.exec_cmd(terminal))
@@ -436,10 +437,18 @@ hl.bind(mainMod .. " + SHIFT + D", hl.dsp.window.move({ workspace = "special:ves
 hl.bind(mainMod .. " + M", hl.dsp.workspace.toggle_special("spotify"))
 hl.bind(mainMod .. " + SHIFT + M", hl.dsp.window.move({ workspace = "special:spotify" }))
 
+--special workspace slack
+
+hl.bind(mainMod .. " + CTRL + D", hl.dsp.workspace.toggle_special("slack"))
+
 
 -- Scroll through existing workspaces with mainMod + scroll
 hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
 hl.bind(mainMod .. " + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
+
+-- Step through existing workspaces with mainMod + CTRL + left/right arrows
+hl.bind(mainMod .. " + CTRL + right", hl.dsp.focus({ workspace = "e+1" }))
+hl.bind(mainMod .. " + CTRL + left", hl.dsp.focus({ workspace = "e-1" }))
 
 -- Move/resize windows with mainMod + LMB/RMB and dragging
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
