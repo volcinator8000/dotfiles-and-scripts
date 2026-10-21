@@ -52,6 +52,21 @@ if [ -n "$prev" ] && [ "$prev" != "$state" ]; then
     esac
 fi
 echo "$state" > "$ST"
+# call boost: on battery, power-saver starves WebRTC audio (Meet sounds robotic), so hold `balanced`
+# while any app records from a real mic (sink monitors like cava don't count) and drop back after
+CB="${XDG_RUNTIME_DIR:-/tmp}/call-boost"
+if [ "$1" != "--text" ] && [ "$(pa enabled)" = true ] && [ "$(pa call_boost)" != false ]; then
+    mons=" $(pactl list short sources 2>/dev/null | awk '$2 ~ /\.monitor$/ {printf "%s ", $1}')"
+    mic=$(pactl list short source-outputs 2>/dev/null | awk -v m="$mons" 'index(m, " " $2 " ") == 0' | head -1)
+    if [ "$state" = discharging ] && [ -n "$mic" ] && ! ultra_on; then
+        if [ ! -f "$CB" ] && [ "$(powerprofilesctl get)" = "$(pa on_battery)" ] && [ "$(pa on_battery)" != balanced ] && [ "$(pa on_battery)" != performance ]; then
+            powerprofilesctl set balanced 2>/dev/null && touch "$CB" && notify-send -a power -i audio-input-microphone "Mic in use" "profile: balanced until the call ends"
+        fi
+    elif [ -f "$CB" ]; then
+        rm -f "$CB"   # only undo our own switch: a manual change or the charger handler already moved on
+        [ "$state" = discharging ] && [ "$(powerprofilesctl get)" = balanced ] && powerprofilesctl set "$(pa on_battery)" 2>/dev/null
+    fi
+fi
 # ultra mode below a percentage (ultra_at_pct, 0 = never); once per discharge cycle
 UAT=$(pa ultra_at_pct); UF="${XDG_RUNTIME_DIR:-/tmp}/ultra-auto-entered"
 if [ "$state" = discharging ] && [ "${UAT:-0}" -gt 0 ] 2>/dev/null && (( pct <= UAT )); then
