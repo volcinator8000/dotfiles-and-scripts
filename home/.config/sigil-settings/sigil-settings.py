@@ -4,7 +4,7 @@
 Pages: Dashboard (live stats), Sounds (typewriter key sounds, packs), Power
 (profile, brightness, night light, idle timers), Desktop (wallpaper gallery,
 updates, services), Input (keyboard / touchpad via ~/.config/hypr/local.lua), Tablet (drawing
-tablet mapping via ~/.config/hypr/tablet.lua),
+tablet mapping via ~/.config/hypr/tablet.lua), Snapshots (snapper list / create / delete / undo, retention),
 About (keys). Everything goes through the same scripts the bar and control
 center use. `--page NAME` opens on a page.
 """
@@ -1425,6 +1425,252 @@ class TabletPage(Adw.PreferencesPage):
         spawn(["kitty", "--title", "tablet-test", "-e", exe])
 
 
+class SnapshotsPage(Adw.PreferencesPage):
+    """Snapper manager: list / create / delete snapshots, inspect and undo changes, retention limits.
+    Talks to snapperd as the user, which needs ALLOW_USERS + SYNC_ACL in each config (one pkexec
+    'Grant access' click). Anything snapperd still refuses is retried once through pkexec.
+    No rollback button: rootflags=subvol=@ is pinned in the rEFInd stanza, so `snapper rollback`
+    would not change what boots; boot a snapshot via refind-btrfs instead."""
+    LIMITS = [("TIMELINE_LIMIT_HOURLY", "Hourly"), ("TIMELINE_LIMIT_DAILY", "Daily"), ("TIMELINE_LIMIT_WEEKLY", "Weekly"),
+              ("TIMELINE_LIMIT_MONTHLY", "Monthly"), ("TIMELINE_LIMIT_YEARLY", "Yearly"), ("NUMBER_LIMIT", "Number (pre/post)")]
+
+    def __init__(self, toast, app):
+        super().__init__(title="Snapshots", icon_name="document-revert-symbolic")
+        self.toast = toast
+        self.configs = [l.split("│")[0].strip() for l in run(["snapper", "list-configs"]).splitlines()[2:] if "│" in l] or ["root"]
+        self.configs.sort(key=lambda c: c != "root")
+        self.cfg, self.cfg_vals, self.rows, self.checked = self.configs[0], {}, [], set()
+
+        g = Adw.PreferencesGroup(title="Snapper")
+        self.cfg_row = Adw.ComboRow(title="Config", model=Gtk.StringList.new(self.configs))
+        self.cfg_row.connect("notify::selected", lambda r, _: (setattr(self, "cfg", self.configs[r.get_selected()]), self.load()))
+        g.add(self.cfg_row)
+        self.access_row = button_row("No access", "snapperd refuses your user; grant once with your password (ALLOW_USERS + SYNC_ACL for every config)",
+                                     ("Grant access", self.grant, "suggested-action"))
+        self.access_row.add_prefix(Gtk.Image.new_from_icon_name("dialog-warning-symbolic"))
+        self.access_row.set_visible(False); g.add(self.access_row)
+        g.add(button_row("New snapshot", "single snapshot of the selected config, kept until deleted",
+                         ("Create…", self.create, "suggested-action")))
+        self.add(g)
+
+        r = Adw.PreferencesGroup(title="Retention", description="cleanup runs from snapper-cleanup.timer; snap-pac adds a pre/post pair per pacman transaction")
+        self.tl_create = Adw.SwitchRow(title="Timeline snapshots", subtitle="hourly snapshots from snapper-timeline.timer")
+        self.tl_cleanup = Adw.SwitchRow(title="Timeline cleanup", subtitle="prune timeline snapshots down to the limits below")
+        r.add(self.tl_create); r.add(self.tl_cleanup)
+        self.limit_rows = {}
+        for key, title in self.LIMITS:
+            self.limit_rows[key] = spin(title, key, 0, 0, 500, 1); r.add(self.limit_rows[key])
+        r.add(button_row("Apply", "write the limits to the snapper config",
+                         ("Clean up now", self.cleanup, None), ("Apply", self.apply_limits, "suggested-action")))
+        self.retention = r
+
+        self.list_group = Adw.PreferencesGroup(title="Snapshots")
+        hdr = Gtk.Box(spacing=6)
+        self.del_btn = Gtk.Button(label="Delete selected", valign=Gtk.Align.CENTER, css_classes=["destructive-action"], sensitive=False)
+        self.del_btn.connect("clicked", lambda *_: self.delete(sorted(self.checked)))
+        ref = Gtk.Button(icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER, tooltip_text="Reload", css_classes=["flat"])
+        ref.connect("clicked", lambda *_: self.load())
+        hdr.append(self.del_btn); hdr.append(ref)
+        self.list_group.set_header_suffix(hdr)
+        self.add(self.list_group)
+        self.add(r)
+        self.load()
+
+    def refresh(self):
+        self.load()
+
+    # ── snapper plumbing ──
+    def snap(self, args, done, timeout=60):
+        """snapper -c CFG ARGS as the user; on a permission error retry once as root through pkexec."""
+        cmd = ["snapper", "-c", self.cfg] + args
+        def first(out, rc):
+            if rc != 0 and ("No permissions" in out or "permission" in out.lower()):
+                run_async(["pkexec"] + cmd, done, timeout=timeout + 60)
+            else:
+                done(out, rc)
+        run_async(cmd, first, timeout=timeout)
+
+    def subvol(self):
+        return self.cfg_vals.get("SUBVOLUME", "/" if self.cfg == "root" else f"/{self.cfg}")
+
+    def load(self):
+        self.list_group.set_description("loading…")
+        self.cfg_vals = {}; self.retention.set_sensitive(False)  # never Apply zeros from a config we couldn't read
+        cfg = self.cfg  # drop replies that arrive after the user switched config
+        run_async(["snapper", "--jsonout", "-c", cfg, "get-config"], lambda out, rc: cfg == self.cfg and self.got_config(out, rc), timeout=10)
+        run_async(["snapper", "--jsonout", "-c", cfg, "list", "--disable-used-space"], lambda out, rc: cfg == self.cfg and self.got_list(out, rc), timeout=20)
+
+    def got_config(self, out, rc):
+        try:
+            vals = json.loads(out)
+        except ValueError:
+            return
+        if not isinstance(vals, dict) or "SUBVOLUME" not in vals:
+            return
+        self.cfg_vals = vals; self.retention.set_sensitive(True)
+        self.tl_create.set_active(vals.get("TIMELINE_CREATE") == "yes")
+        self.tl_cleanup.set_active(vals.get("TIMELINE_CLEANUP") == "yes")
+        for key, row in self.limit_rows.items():
+            try:
+                row.set_value(int(vals.get(key, "0").split("-")[-1]))  # ranges like "2-10" keep the upper bound
+            except ValueError:
+                pass
+
+    def got_list(self, out, rc):
+        for row in self.rows:
+            self.list_group.remove(row)
+        self.rows.clear(); self.checked.clear(); self.del_btn.set_sensitive(False)
+        if "No permissions" in out:
+            self.access_row.set_visible(True)
+            self.list_group.set_description("no permission to read snapshots"); return
+        self.access_row.set_visible(False)
+        try:
+            data = json.loads(out)
+            snaps = [s for s in (data.get(self.cfg) or next(iter(data.values()), [])) if s.get("number", 0) != 0]
+        except (ValueError, StopIteration, AttributeError):
+            self.list_group.set_description(out.splitlines()[-1][:120] if out else "snapper failed"); return
+
+        # fold each post into its pre so a pacman transaction is one row
+        posts = {s["pre-number"]: s for s in snaps if s.get("type") == "post" and s.get("pre-number")}
+        entries = []
+        for s in snaps:
+            if s.get("type") == "post" and s.get("pre-number") in {p["number"] for p in snaps}:
+                continue
+            entries.append((s, posts.get(s["number"]) if s.get("type") == "pre" else None))
+        entries.sort(key=lambda e: e[0]["number"], reverse=True)
+        n_tl = sum(1 for s in snaps if s.get("cleanup") == "timeline")
+        n_num = sum(1 for s in snaps if s.get("cleanup") == "number")
+        self.list_group.set_description(f"{len(snaps)} snapshot(s) · {n_num} pacman · {n_tl} timeline · {len(snaps) - n_tl - n_num} manual"
+                                        if snaps else "no snapshots yet")
+        for pre, post in entries:
+            self.add_row(pre, post)
+
+    def add_row(self, s, post):
+        num, date = s["number"], (s.get("date") or "")[:16]
+        desc = s.get("description") or ("timeline" if s.get("cleanup") == "timeline" else "(no description)")
+        if post:
+            title, nums, icon = desc, f"#{num} → #{post['number']}", "package-x-generic-symbolic"
+        else:
+            title, nums = desc, f"#{num}" + (" · pre, no post" if s.get("type") == "pre" else "")
+            icon = "alarm-symbolic" if s.get("cleanup") == "timeline" else "camera-photo-symbolic"
+        tags = [t for t in (s.get("cleanup"), "important" if (s.get("userdata") or {}).get("important") == "yes" else "") if t]
+        row = Adw.ActionRow(title=GLib.markup_escape_text(title[:90]), subtitle=f"{nums}  ·  {date}" + (f"  ·  {', '.join(tags)}" if tags else ""))
+        row.set_subtitle_selectable(False)
+        ids = [num] + ([post["number"]] if post else [])
+        chk = Gtk.CheckButton(valign=Gtk.Align.CENTER)
+        chk.connect("toggled", lambda b, ids=ids: (self.checked.update(ids) if b.get_active() else self.checked.difference_update(ids),
+                                                     self.del_btn.set_sensitive(bool(self.checked)),
+                                                     self.del_btn.set_label(f"Delete {len(self.checked)}" if self.checked else "Delete selected")))
+        row.add_prefix(Gtk.Image.new_from_icon_name(icon)); row.add_prefix(chk)
+        rng = (num, post["number"]) if post else (num, 0)
+        for icon_name, tip, cb in (("document-properties-symbolic", "Changes" + (" in this transaction" if post else " since this snapshot"), lambda *_: self.changes(*rng, title)),
+                                   ("folder-open-symbolic", "Browse files", lambda *_: self.browse(post["number"] if post else num)),
+                                   ("user-trash-symbolic", "Delete", lambda *_: self.delete(ids))):
+            b = Gtk.Button(icon_name=icon_name, valign=Gtk.Align.CENTER, tooltip_text=tip, css_classes=["flat"])
+            b.connect("clicked", cb); row.add_suffix(b)
+        self.list_group.add(row); self.rows.append(row); wire_sounds(row)
+
+    # ── actions ──
+    def confirm(self, heading, body, label, cb, destructive=True):
+        dlg = Adw.AlertDialog(heading=heading, body=body)
+        dlg.add_response("cancel", "Cancel"); dlg.add_response("ok", label)
+        dlg.set_response_appearance("ok", Adw.ResponseAppearance.DESTRUCTIVE if destructive else Adw.ResponseAppearance.SUGGESTED)
+        dlg.set_default_response("cancel")
+        dlg.connect("response", lambda _d, r: cb() if r == "ok" else None)
+        dlg.present(self.get_root())
+
+    def grant(self):
+        user = os.environ.get("USER") or os.getlogin()
+        script = " && ".join(f"snapper -c {c} set-config ALLOW_USERS={user} SYNC_ACL=yes" for c in self.configs)
+        self.toast("Waiting for authentication…")
+        run_async(["pkexec", "sh", "-c", script], lambda out, rc: (self.toast("Access granted" if rc == 0 else (out.splitlines()[-1][:90] if out else "cancelled")), self.load()), timeout=120)
+
+    def create(self):
+        dlg = Adw.AlertDialog(heading="New snapshot", body=f"config {self.cfg} ({self.subvol()})")
+        entry = Gtk.Entry(placeholder_text="description, e.g. before kernel tinkering"); entry.set_margin_top(6)
+        imp = Gtk.CheckButton(label="Important (survives number cleanup)")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6); box.append(entry); box.append(imp)
+        dlg.set_extra_child(box)
+        dlg.add_response("cancel", "Cancel"); dlg.add_response("ok", "Create")
+        dlg.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED); dlg.set_default_response("ok")
+        entry.connect("activate", lambda *_: dlg.response("ok"))
+        def go(desc, important):
+            args = ["create", "--print-number", "--description", desc or "manual (sigil settings)"]
+            if important:
+                args += ["--userdata", "important=yes"]
+            self.toast("Creating snapshot…")
+            self.snap(args, lambda out, rc: (self.toast(f"Snapshot #{out.splitlines()[-1]} created" if rc == 0 and out else (out.splitlines()[-1][:90] if out else "failed")), self.load()))
+        dlg.connect("response", lambda _d, r: go(entry.get_text().strip(), imp.get_active()) if r == "ok" else None)
+        dlg.present(self.get_root())
+
+    def delete(self, ids):
+        if not ids:
+            return
+        label = f"#{ids[0]}" if len(ids) == 1 else f"{len(ids)} snapshots"
+        def go():
+            self.toast(f"Deleting {label}…")
+            self.snap(["delete", "--sync"] + [str(i) for i in ids],
+                      lambda out, rc: (self.toast(f"Deleted {label}" if rc == 0 else (out.splitlines()[-1][:90] if out else "failed")), self.load()), timeout=300)
+        self.confirm(f"Delete {label}?", f"From config {self.cfg}. This cannot be undone; --sync waits until btrfs has freed the space.", "Delete", go)
+
+    def cleanup(self):
+        self.toast("Cleaning up…")
+        def step(algos):
+            if not algos:
+                self.toast("Cleanup done"); self.load(); return
+            self.snap(["cleanup", algos[0]], lambda out, rc: step(algos[1:]) if rc == 0 else (self.toast(out.splitlines()[-1][:90] if out else "cleanup failed"), self.load()), timeout=300)
+        step(["number", "timeline", "empty-pre-post"])
+
+    def apply_limits(self):
+        vals = {k: str(int(r.get_value())) for k, r in self.limit_rows.items()}
+        vals["TIMELINE_CREATE"] = "yes" if self.tl_create.get_active() else "no"
+        vals["TIMELINE_CLEANUP"] = "yes" if self.tl_cleanup.get_active() else "no"
+        changed = [f"{k}={v}" for k, v in vals.items() if self.cfg_vals.get(k) != v]
+        if not changed:
+            self.toast("Nothing changed"); return
+        self.snap(["set-config"] + changed, lambda out, rc: (self.toast(f"{self.cfg}: {len(changed)} setting(s) saved" if rc == 0 else (out.splitlines()[-1][:90] if out else "failed")), self.load()))
+
+    def browse(self, num):
+        path = os.path.join(self.subvol(), ".snapshots", str(num), "snapshot")
+        if not os.access(path, os.R_OK | os.X_OK):
+            self.toast("Can't read the snapshot dir (grant access sets SYNC_ACL)"); return
+        spawn(["xdg-open", path])
+
+    def changes(self, a, b, title):
+        """Dialog listing `snapper status a..b`, with an undo button for the whole set."""
+        dlg = Adw.Dialog(title=f"#{a} → " + (f"#{b}" if b else "now"), content_width=820, content_height=560)
+        view = Adw.ToolbarView(); view.add_top_bar(Adw.HeaderBar())
+        buf = Gtk.TextBuffer(); buf.set_text("comparing… (big ranges can take a while)")
+        tv = Gtk.TextView(buffer=buf, editable=False, monospace=True, left_margin=12, top_margin=8)
+        sc = Gtk.ScrolledWindow(child=tv, vexpand=True); view.set_content(sc)
+        bar = Gtk.Box(spacing=8, margin_top=8, margin_bottom=8, margin_start=12, margin_end=12)
+        summary = Gtk.Label(label=title[:70], xalign=0, hexpand=True, ellipsize=3); summary.add_css_class("sigil-dim")
+        undo = Gtk.Button(label="Undo these changes", css_classes=["destructive-action"], sensitive=False)
+        bar.append(summary); bar.append(undo); view.add_bottom_bar(bar)
+        dlg.set_child(view)
+
+        def got(out, rc):
+            lines = [l for l in out.splitlines() if re.match(r"^[+\-c.tpugxa]{5,}\s", l)]
+            if rc != 0:
+                buf.set_text(out or "snapper status failed"); return
+            counts = {k: sum(1 for l in lines if l[0] == k) for k in "+-c"}
+            summary.set_label(f"{len(lines)} path(s) · +{counts['+']} new · -{counts['-']} deleted · {counts['c']} modified")
+            shown = lines[:5000]
+            buf.set_text("\n".join(shown) + (f"\n… {len(lines) - len(shown)} more" if len(lines) > len(shown) else "") if lines else "no changes")
+            undo.set_sensitive(bool(lines))
+        self.snap(["status", f"{a}..{b}"], got, timeout=600)
+
+        def do_undo():
+            dlg.close(); self.toast("Undoing changes…")
+            self.snap(["undochange", f"{a}..{b}"], lambda out, rc: self.toast("Changes undone" if rc == 0 else (out.splitlines()[-1][:90] if out else "undo failed")), timeout=900)
+        target = f"#{b}" if b else "the current system"
+        undo.connect("clicked", lambda *_: self.confirm("Undo these changes?",
+                     f"Files changed between #{a} and {target} are put back to their state in #{a} (config {self.cfg}). "
+                     "For root this rewrites live system files; take a fresh snapshot first if unsure.", "Undo changes", do_undo))
+        wire_sounds(bar)
+        dlg.present(self.get_root())
+
+
 PAGES = [("dashboard", "Dashboard", "utilities-system-monitor-symbolic", DashboardPage),
          ("wifi", "Wi-Fi", "network-wireless-symbolic", WifiPage),
          ("bluetooth", "Bluetooth", "bluetooth-symbolic", BluetoothPage),
@@ -1432,6 +1678,7 @@ PAGES = [("dashboard", "Dashboard", "utilities-system-monitor-symbolic", Dashboa
          ("sounds", "Sound theme", "emblem-music-symbolic", SoundsPage),
          ("power", "Power", "battery-symbolic", PowerPage),
          ("desktop", "Desktop", "preferences-desktop-wallpaper-symbolic", DesktopPage),
+         ("snapshots", "Snapshots", "document-revert-symbolic", SnapshotsPage),
          ("input", "Input", "input-mouse-symbolic", InputPage),
          ("tablet", "Tablet", "input-tablet-symbolic", TabletPage),
          ("about", "About", "help-about-symbolic", AboutPage)]
