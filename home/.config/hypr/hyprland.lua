@@ -26,7 +26,7 @@ hl.monitor({
 ---------------------
 
 -- Set programs that you use
-local terminal = "kitty"
+local terminal = "kitty -1" -- single instance: new windows come from the resident kitty (~150 ms vs ~2 s cold)
 local fileManager = "dolphin"
 local menu = "rofi -show drun"
 local browser = "zen-browser"
@@ -55,6 +55,7 @@ hl.on("hyprland.start", function ()
     hl.exec_cmd("kdeconnect-indicator") -- phone link (KDE Connect): notifications, clipboard, files, media; tray icon
     hl.exec_cmd("playerctld daemon") -- follows the most recently active media player (bar title + lyrics)
     hl.exec_cmd("hypridle")
+    hl.exec_cmd("kitty -1 --start-as=hidden") -- resident kitty server so SUPER+T opens instantly
     hl.exec_cmd("systemctl --user start swaync") -- via the unit: same target as D-Bus activation (no double launch), Restart=on-failure
     hl.exec_cmd("hyprexpose")
     hl.exec_cmd("~/.config/keysound/keysound.sh start") -- typewriter key sounds
