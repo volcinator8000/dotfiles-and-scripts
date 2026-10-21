@@ -62,6 +62,15 @@ rc=$?
 echo
 
 # ── post-update hooks (user side) ─────────────────────────────────────────
+# oh-my-zsh: its startup auto-update is off in .zshrc (DISABLE_AUTO_UPDATE), so update it here.
+# Same call `omz update` makes, minimal output; independent of paru's result.
+OMZ="$HOME/.oh-my-zsh"
+if [[ -f "$OMZ/tools/upgrade.sh" ]]; then
+    printf '  %s▸ oh-my-zsh: updating%s\n' "$B" "$X"
+    LANG= ZSH="$OMZ" zsh -f "$OMZ/tools/upgrade.sh" -v minimal 2>&1 | sed 's/^/    /'
+    echo
+fi
+
 # spicetify: a spotify upgrade replaces /opt/spotify (pacman hook re-opens the perms),
 # so re-inject the Cybersigil theme. Also covers the very first apply once /opt/spotify is writable.
 SPICE="$HOME/.spicetify/spicetify"; [[ -x "$SPICE" ]] || SPICE="$(command -v spicetify 2>/dev/null)"
