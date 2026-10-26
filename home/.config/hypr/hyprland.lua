@@ -16,8 +16,24 @@
 -- See https://wiki.hypr.land/Configuring/Basics/Monitors/
 hl.monitor({
     output = "",
-    mode = "highres",
+    mode = "preferred",
     position = "auto",
+    scale = 1,
+})
+-- laptop panel on the left, Waybar lives here
+hl.monitor({
+    output = "eDP-1",
+    mode = "1920x1080@60",
+    position = "0x0",
+    scale = 1,
+})
+-- LG 1440p to the right. Matched by description so the rule follows it to any port. highrr picks
+-- the fastest mode the cable allows: 2560x1440@99.95 over HDMI (its EDID caps HDMI at 100 Hz),
+-- 144 Hz over DisplayPort. ("highres" chose 3840x2160@60, which the monitor downscaled.)
+hl.monitor({
+    output = "desc:LG Electronics LG HDR QHD 0x0004D689",
+    mode = "highrr",
+    position = "1920x0",
     scale = 1,
 })
 
@@ -263,6 +279,7 @@ hl.config({
         -- false: a keypress while the panel is dark is delivered to the app (e.g. hyprlock)
         -- instead of being swallowed to wake the screen; hypridle turns the panel on anyway
         key_press_enables_dpms = false,
+        vrr = 2, -- adaptive sync for fullscreen apps only (LG FreeSync 48-100 Hz over HDMI); the eDP panel has none
     },
 })
 

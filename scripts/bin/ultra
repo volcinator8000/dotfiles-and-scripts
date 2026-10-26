@@ -46,7 +46,8 @@ lowest_mode() {  # current resolution at the lowest refresh the panel offers, ""
     hyprctl monitors -j 2>/dev/null | python3 -c '
 import json, sys
 try:
-    m = json.load(sys.stdin)[0]
+    ms = json.load(sys.stdin)
+    m = next((x for x in ms if x["name"].startswith("eDP")), ms[0])  # the laptop panel, not whatever is plugged in
 except Exception:
     sys.exit(0)
 w, h, cur = m["width"], m["height"], m["refreshRate"]
@@ -162,7 +163,7 @@ case "${1:-toggle}" in
             echo "  closed apps: $(tr '\n' ' ' < "$ST/apps" 2>/dev/null)"
             echo "  stopped: $(tr '\n' ' ' < "$ST/daemons" 2>/dev/null)"
         else echo "ultra: off"; fi
-        panel=$(hyprctl monitors -j 2>/dev/null | python3 -c 'import json,sys; m=json.load(sys.stdin)[0]; print("%dx%d@%.0f" % (m["width"], m["height"], m["refreshRate"]))' 2>/dev/null)
+        panel=$(hyprctl monitors -j 2>/dev/null | python3 -c 'import json,sys; ms=json.load(sys.stdin); m=next((x for x in ms if x["name"].startswith("eDP")), ms[0]); print("%dx%d@%.0f" % (m["width"], m["height"], m["refreshRate"]))' 2>/dev/null)
         echo "  panel: $panel · profile $(powerprofilesctl get 2>/dev/null) · $(brightnessctl -m 2>/dev/null | cut -d, -f4) backlight"
         if helper_ok; then echo "  root helper: $(sudo -n "$HELPER" status 2>/dev/null | tr '\n' ' ')"; else echo "  root helper: not installed (sudoers + $HELPER, see README)"; fi
         upower -i "$(upower -e | grep -m1 BAT)" 2>/dev/null | awk -F': *' '/energy-rate:/{r=$2} /time to empty:/{t=$2} /percentage:/{p=$2} END{printf "  battery: %s · %s · %s\n", p, r, t?t:"not discharging"}' ;;

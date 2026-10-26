@@ -2,6 +2,7 @@
     // ultra power saver bar (launched by `ultra on`): no pollers except the battery widget,
     // which is the one that notices the charger and leaves the mode (ultra_exit_on_ac).
     "layer": "top",
+    "output": "eDP-1",
     "position": "top",
     "mode": "dock",
     "exclusive": true,

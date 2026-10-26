@@ -1,5 +1,6 @@
 {
     "layer": "top",
+    "output": "eDP-1",  // laptop screen only; the LG stays bar-free
     "position": "top",
     "mode": "dock",
     "exclusive": true,
