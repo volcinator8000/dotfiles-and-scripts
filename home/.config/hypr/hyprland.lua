@@ -279,7 +279,7 @@ hl.config({
         -- false: a keypress while the panel is dark is delivered to the app (e.g. hyprlock)
         -- instead of being swallowed to wake the screen; hypridle turns the panel on anyway
         key_press_enables_dpms = false,
-        vrr = 2, -- adaptive sync for fullscreen apps only (LG FreeSync 48-100 Hz over HDMI); the eDP panel has none
+        vrr = 0, -- 2 (fullscreen only) broke the LG over HDMI (2026-10-26: had to replug); retest before re-enabling
     },
 })
 
