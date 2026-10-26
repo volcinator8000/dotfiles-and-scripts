@@ -99,6 +99,7 @@ LINK_DIRS=(
 LINK_FILES=(
     .zshrc .config/starship.toml .config/kdeglobals .config/dolphinrc
     .config/gtk-3.0/gtk.css .config/gtk-4.0/gtk.css
+    .config/user-tmpfiles.d/claude-tmp.conf
     .local/share/color-schemes/Cybersigil.colors
     .local/share/applications/sigil-settings.desktop
     .local/share/applications/org.kde.krita.desktop
@@ -173,6 +174,7 @@ run mkdir -p "$HOME/Pictures/Screenshots" "$HOME/.cache/nowplaying"
 say "weekly dotfiles sync timer"
 run systemctl --user daemon-reload 2>/dev/null || true
 run systemctl --user enable --now dots-sync.timer 2>/dev/null || warn "could not enable dots-sync.timer (no user session bus?)"
+run systemctl --user enable --now systemd-tmpfiles-clean.timer 2>/dev/null || warn "could not enable systemd-tmpfiles-clean.timer"
 if [[ ! -x "$HOME/.spicetify/spicetify" ]] && command -v spotify >/dev/null; then
     say "spicetify (user install, themes Spotify); apply needs: sudo chmod a+wr -R /opt/spotify && spicetify backup apply"
     run sh -c "$(curl -fsSL https://raw.githubusercontent.com/spicetify/cli/main/install.sh)" </dev/null >/dev/null 2>&1 || warn "spicetify install failed"
