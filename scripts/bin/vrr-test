@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# vrr-test [mode] [seconds]: turn Hyprland VRR on for a while, then back off no matter what.
+# Put a video fullscreen on the external monitor first. mode 2 = fullscreen only, 3 = fullscreen video/game content.
+mode=${1:-2}; secs=${2:-30}
+trap 'hyprctl eval "hl.config({ misc = { vrr = 0 } })" >/dev/null; echo "vrr back to 0"' EXIT INT TERM
+hyprctl eval "hl.config({ misc = { vrr = $mode } })" >/dev/null && echo "vrr = $mode for ${secs}s, watch the LG (Ctrl+C reverts early)"
+sleep "$secs"
