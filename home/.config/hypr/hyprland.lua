@@ -71,6 +71,7 @@ hl.on("hyprland.start", function ()
     hl.exec_cmd("kdeconnect-indicator") -- phone link (KDE Connect): notifications, clipboard, files, media; tray icon
     hl.exec_cmd("playerctld daemon") -- follows the most recently active media player (bar title + lyrics)
     hl.exec_cmd("hypridle")
+    hl.exec_cmd("udiskie") -- automount USB sticks / SD cards (config: ~/.config/udiskie/config.yml), visible in Dolphin
     hl.exec_cmd("kitty -1 --start-as=hidden") -- resident kitty server so SUPER+T opens instantly
     hl.exec_cmd("systemctl --user start swaync") -- via the unit: same target as D-Bus activation (no double launch), Restart=on-failure
     hl.exec_cmd("hyprexpose")

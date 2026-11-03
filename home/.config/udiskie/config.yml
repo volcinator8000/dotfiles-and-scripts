@@ -1,0 +1,27 @@
+# udiskie: automount USB sticks / SD cards via udisks2 (shows up in Dolphin under /run/media/$USER)
+# started from ~/.config/hypr/hyprland.lua
+program_options:
+  automount: true
+  notify: true          # mount/unmount/eject notifications through swaync
+  tray: auto            # tray icon only while a removable device is present
+  menu: flat
+  file_manager: dolphin # "Browse" in notifications / tray opens Dolphin
+  terminal: kitty
+  password_prompt: builtin:gui   # LUKS-encrypted sticks get a password dialog
+
+notifications:
+  timeout: 4
+  device_mounted: 5
+  device_unmounted: 3
+  device_added: false   # "mounted" already covers it
+  device_removed: false
+  device_unlocked: 3
+  device_locked: 3
+  job_failed: 8
+
+device_config:
+  # never touch internal disks or loop/snap images
+  - is_external: false
+    ignore: true
+  - is_loop: true
+    ignore: true

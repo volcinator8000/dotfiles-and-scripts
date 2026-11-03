@@ -93,7 +93,7 @@ fi
 # whole directories: everything in them is ours
 LINK_DIRS=(
     .config/hypr .config/waybar .config/swaync .config/kitty .config/rofi .config/wlogout
-    .config/keysound .config/sigil-settings .config/macchina .config/fontconfig .config/qt6ct
+    .config/keysound .config/sigil-settings .config/macchina .config/fontconfig .config/qt6ct .config/udiskie
 )
 # single files: the directory around them holds other stuff we do not manage
 LINK_FILES=(
