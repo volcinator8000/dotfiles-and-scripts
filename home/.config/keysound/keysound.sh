@@ -3,15 +3,15 @@
 #                   play <event> | system on|off|state | system-volume <0-1>   (system sounds: notify notify-urgent lock unlock shutter plug unplug batt-low)
 D=~/.config/keysound
 case "${1:-start}" in
-    start)  pgrep -f '^python3 .*keysoundd.py' >/dev/null || setsid -f python3 "$D/keysoundd.py" </dev/null >>"${XDG_RUNTIME_DIR:-/tmp}/keysound.log" 2>&1 ;;
-    stop)   pkill -f '^python3 .*keysoundd.py' ;;
-    toggle) if pgrep -f '^python3 .*keysoundd.py' >/dev/null; then pkill -f '^python3 .*keysoundd.py'; else setsid -f python3 "$D/keysoundd.py" </dev/null >>"${XDG_RUNTIME_DIR:-/tmp}/keysound.log" 2>&1; fi ;;
-    state)  pgrep -f '^python3 .*keysoundd.py' >/dev/null && echo true || echo false ;;
-    mute)   pkill -USR1 -f '^python3 .*keysoundd.py' ;;
-    volume) sed -i "s/^volume=.*/volume=$2/" "$D/config"; pkill -HUP -f '^python3 .*keysoundd.py' ;;
-    restart) pkill -f '^python3 .*keysoundd.py'; for i in $(seq 1 20); do pgrep -f '^python3 .*keysoundd.py' >/dev/null || break; sleep 0.1; done
+    start)  systemctl --user start keysound 2>/dev/null || { pgrep -f '^(/usr/bin/)?python3 .*keysoundd.py' >/dev/null || setsid -f python3 "$D/keysoundd.py" </dev/null >>"${XDG_RUNTIME_DIR:-/tmp}/keysound.log" 2>&1; } ;;   # systemd unit restarts it if it crashes
+    stop)   systemctl --user stop keysound 2>/dev/null; pkill -f '^(/usr/bin/)?python3 .*keysoundd.py' ;;
+    toggle) if pgrep -f '^(/usr/bin/)?python3 .*keysoundd.py' >/dev/null; then "$0" stop; else "$0" start; fi ;;
+    state)  pgrep -f '^(/usr/bin/)?python3 .*keysoundd.py' >/dev/null && echo true || echo false ;;
+    mute)   pkill -USR1 -f '^(/usr/bin/)?python3 .*keysoundd.py' ;;
+    volume) sed -i "s/^volume=.*/volume=$2/" "$D/config"; pkill -HUP -f '^(/usr/bin/)?python3 .*keysoundd.py' ;;
+    restart) systemctl --user restart keysound 2>/dev/null && exit 0; pkill -f '^(/usr/bin/)?python3 .*keysoundd.py'; for i in $(seq 1 20); do pgrep -f '^(/usr/bin/)?python3 .*keysoundd.py' >/dev/null || break; sleep 0.1; done
              setsid -f python3 "$D/keysoundd.py" </dev/null >>"${XDG_RUNTIME_DIR:-/tmp}/keysound.log" 2>&1 ;;
-    pack)   if [ -n "$2" ]; then sed -i "s/^pack=.*/pack=$2/" "$D/config"; pkill -HUP -f '^python3 .*keysoundd.py'; else sed -n 's/^pack=//p' "$D/config"; fi ;;
+    pack)   if [ -n "$2" ]; then sed -i "s/^pack=.*/pack=$2/" "$D/config"; pkill -HUP -f '^(/usr/bin/)?python3 .*keysoundd.py'; else sed -n 's/^pack=//p' "$D/config"; fi ;;
     packs)  ls -1 "$D/packs" ;;
     play)   # system sound from the active pack; honours system=, system_volume= and swaync do-not-disturb
             [ "$(sed -n 's/^system=//p' "$D/config")" = "false" ] && exit 0

@@ -67,15 +67,12 @@ hl.on("hyprland.start", function ()
     hl.exec_cmd("[workspace special:vesktop silent] vesktop")
     hl.exec_cmd("[workspace special:slack silent] slack")
     hl.exec_cmd("[workspace special:spotify silent] spotify")
-    hl.exec_cmd("nm-applet --indicator")
-    hl.exec_cmd("kdeconnect-indicator") -- phone link (KDE Connect): notifications, clipboard, files, media; tray icon
-    hl.exec_cmd("playerctld daemon") -- follows the most recently active media player (bar title + lyrics)
-    hl.exec_cmd("hypridle")
-    hl.exec_cmd("udiskie") -- automount USB sticks / SD cards (config: ~/.config/udiskie/config.yml), visible in Dolphin
+    -- session helpers run as systemd user units (restart themselves if they crash):
+    --   hypridle udiskie playerctld nm-applet kdeconnect-indicator keysound (units in ~/.config/systemd/user)
+    hl.exec_cmd("systemctl --user start hypridle udiskie playerctld nm-applet kdeconnect-indicator keysound")
     hl.exec_cmd("kitty -1 --start-as=hidden") -- resident kitty server so SUPER+T opens instantly
     hl.exec_cmd("~/.local/bin/sigil-do notifd") -- swaync (via the unit: same target as D-Bus activation (no double launch), Restart=on-failure
     hl.exec_cmd("hyprexpose")
-    hl.exec_cmd("~/.config/keysound/keysound.sh start") -- typewriter key sounds
     hl.exec_cmd("wl-paste --type text --watch cliphist store")  -- clipboard history (SUPER+SHIFT+V)
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
     hl.exec_cmd("~/.config/swaync/nightlight.sh autostart") -- night light schedule if enabled (~/.config/hypr/hyprsunset.conf)

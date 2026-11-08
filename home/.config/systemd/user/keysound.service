@@ -1,0 +1,15 @@
+[Unit]
+Description=keysound: typewriter key sounds
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.config/keysound/keysoundd.py
+Restart=on-failure
+RestartSec=2
+
+
+[Install]
+WantedBy=graphical-session.target

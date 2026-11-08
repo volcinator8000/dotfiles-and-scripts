@@ -1,0 +1,15 @@
+[Unit]
+Description=playerctld: follow the most recently active media player
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=dbus
+ExecStart=/usr/bin/playerctld
+Restart=on-failure
+RestartSec=2
+BusName=org.mpris.MediaPlayer2.playerctld
+
+[Install]
+WantedBy=graphical-session.target
