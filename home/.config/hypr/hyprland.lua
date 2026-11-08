@@ -44,7 +44,7 @@ hl.monitor({
 -- Set programs that you use
 local terminal = "kitty -1" -- single instance: new windows come from the resident kitty (~150 ms vs ~2 s cold)
 local fileManager = "dolphin"
-local menu = "rofi -show drun"
+local menu = "~/.local/bin/sigil-do launcher" -- rofi, or the sigil-shell launcher (see ~/sigil-shell)
 local browser = "zen-browser"
 local ide = "code"
 
@@ -61,9 +61,9 @@ hl.on("hyprland.start", function ()
     -- Restart portals after Hyprland is up so xdg-desktop-portal binds the
     -- Hyprland backend (fixes Discord/screenshare when portals win the boot race)
     hl.exec_cmd("bash -c 'sleep 1; systemctl --user restart xdg-desktop-portal-hyprland xdg-desktop-portal'")
-    hl.exec_cmd("systemctl --user start hyprpolkitagent") -- GUI auth prompts (pkexec etc.)
-    hl.exec_cmd("hyprpaper")
-    hl.exec_cmd("waybar")
+    hl.exec_cmd("~/.local/bin/sigil-do polkitd") -- GUI auth prompts (pkexec etc.): hyprpolkitagent, or built into sigil-shell
+    hl.exec_cmd("~/.local/bin/sigil-do wallpaperd") -- hyprpaper, or drawn by sigil-shell
+    hl.exec_cmd("~/.local/bin/sigil-session") -- waybar or sigil-shell, per ~/.config/sigil/mode (see ~/sigil-shell)
     hl.exec_cmd("[workspace special:vesktop silent] vesktop")
     hl.exec_cmd("[workspace special:slack silent] slack")
     hl.exec_cmd("[workspace special:spotify silent] spotify")
@@ -73,7 +73,7 @@ hl.on("hyprland.start", function ()
     hl.exec_cmd("hypridle")
     hl.exec_cmd("udiskie") -- automount USB sticks / SD cards (config: ~/.config/udiskie/config.yml), visible in Dolphin
     hl.exec_cmd("kitty -1 --start-as=hidden") -- resident kitty server so SUPER+T opens instantly
-    hl.exec_cmd("systemctl --user start swaync") -- via the unit: same target as D-Bus activation (no double launch), Restart=on-failure
+    hl.exec_cmd("~/.local/bin/sigil-do notifd") -- swaync (via the unit: same target as D-Bus activation (no double launch), Restart=on-failure
     hl.exec_cmd("hyprexpose")
     hl.exec_cmd("~/.config/keysound/keysound.sh start") -- typewriter key sounds
     hl.exec_cmd("wl-paste --type text --watch cliphist store")  -- clipboard history (SUPER+SHIFT+V)
@@ -385,11 +385,11 @@ hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd("loginctl lock-session"), { lock
 local mainMod = "SUPER" -- Sets "Windows" key as main modifier
 
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("loginctl lock-session"))
-hl.bind("XF86PowerOff", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play open; wlogout"), { locked = true }) -- power button: menu, not poweroff (logind HandlePowerKey=ignore)
-hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play open; swaync-client -t -sw"))
-hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("~/.config/rofi/clip.sh")) -- clipboard history
-hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play open; rofi -show emoji")) -- emoji picker (rofi-emoji)
-hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("python3 ~/.config/sigil-settings/sigil-settings.py --toggle")) -- settings applet (resident, toggles)
+hl.bind("XF86PowerOff", hl.dsp.exec_cmd("~/.local/bin/sigil-do power"), { locked = true }) -- power button: menu, not poweroff (logind HandlePowerKey=ignore)
+hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("~/.local/bin/sigil-do controlcenter"))
+hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("~/.local/bin/sigil-do clipboard")) -- clipboard history
+hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("~/.local/bin/sigil-do emoji")) -- emoji picker (rofi-emoji)
+hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("~/.local/bin/sigil-do settings")) -- settings applet (resident, toggles)
 hl.bind(mainMod .. " + SHIFT + U", hl.dsp.exec_cmd("~/.local/bin/ultra toggle")) -- ultra power saver / focus mode (see scripts/bin/ultra)
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
@@ -401,7 +401,7 @@ hl.bind(mainMod .. " + B", hl.dsp.exec_cmd(browser))
 hl.bind(mainMod .. " + C", hl.dsp.exec_cmd(ide))
 hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
-hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("~/.config/keysound/keysound.sh play open; " .. menu))
+hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + SHIFT + P", hl.dsp.window.pseudo()) -- pseudo-tile (moved off plain SUPER+P)
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit")) -- dwindle only
 
@@ -577,3 +577,6 @@ pcall(dofile, os.getenv("HOME") .. "/.config/hypr/local.lua")
 -- Kept out of local.lua because the Input page rewrites that file wholesale;
 -- hl.config merges, so whichever of the two loads last wins.
 pcall(dofile, os.getenv("HOME") .. "/.config/hypr/tablet.lua")
+-- sigil-shell: blur rules + SUPER+W widgets + SUPER+CTRL+SHIFT+B old/new switch.
+-- Missing file or errors are ignored, so removing ~/sigil-shell is safe.
+pcall(dofile, os.getenv("HOME") .. "/sigil-shell/hypr/sigil.lua")
