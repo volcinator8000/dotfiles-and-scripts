@@ -15,7 +15,15 @@ case "${1:-start}" in
     packs)  ls -1 "$D/packs" ;;
     play)   # system sound from the active pack; honours system=, system_volume= and swaync do-not-disturb
             [ "$(sed -n 's/^system=//p' "$D/config")" = "false" ] && exit 0
-            [ "$3" != "--force" ] && [ "$(swaync-client -D 2>/dev/null)" = "true" ] && [ "$2" != "lock" ] && [ "$2" != "unlock" ] && exit 0
+            # do-not-disturb: ask whichever notification daemon is actually running, never block.
+            # (swaync-client waits forever when swaync is down, holding a D-Bus connection; enough
+            # of those exhausted the session bus on 2026-11-08 and took every app down with it.)
+            if [ "$3" != "--force" ] && [ "$2" != "lock" ] && [ "$2" != "unlock" ]; then
+                if pgrep -x swaync >/dev/null; then dnd=$(timeout 1 swaync-client -D 2>/dev/null)
+                elif pgrep -x qs >/dev/null; then dnd=$(timeout 1 qs -c sigil ipc call notifs isDnd 2>/dev/null)
+                fi
+                [ "$dnd" = "true" ] && exit 0
+            fi
             p=$(sed -n 's/^pack=//p' "$D/config"); v=$(sed -n 's/^system_volume=//p' "$D/config")
             f="$D/packs/${p:-cybersigil}/$2.wav"; [ -f "$f" ] || f="$D/packs/cybersigil/$2.wav"
             [ -f "$f" ] && setsid -f pw-play --volume "${v:-0.6}" "$f" </dev/null >/dev/null 2>&1 ;;
