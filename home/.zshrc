@@ -32,6 +32,10 @@ alias update="~/.config/waybar/scripts/update-now.sh"
 
 # ── prompt + fetch ───────────────────────────────────────────────
 eval "$(starship init zsh)"
+# sigil-shell palette: use its generated starship config while it exists
+# (sigil mode), the plain one otherwise. Checked before every prompt.
+sigil_starship() { [[ -f ~/.config/sigil/starship.toml ]] && export STARSHIP_CONFIG=~/.config/sigil/starship.toml || unset STARSHIP_CONFIG; }
+precmd_functions=(sigil_starship $precmd_functions)
 [[ -o interactive && -z "$INSIDE_UPDATE_WINDOW" ]] && macchina
 
 # dotfiles: ~/dotfiles-and-scripts (configs are symlinks into it), e.g. `dots status`, `dots add -A`, `dots commit`, `dots push`
