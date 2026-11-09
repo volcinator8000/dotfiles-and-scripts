@@ -217,7 +217,7 @@ hl.animation({ leaf = "zoomFactor", enabled = true, speed = 7, bezier = "quick" 
 
 hl.window_rule({
     name = "spotify-to-special",
-    match = { class = "Spotify" },
+    match = { class = "^[Ss]potify$" },   -- "spotify" on native Wayland (spotify-flags.conf), "Spotify" under Xwayland
     workspace = "special:spotify"
 })
 
