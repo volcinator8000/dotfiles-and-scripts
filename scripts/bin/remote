@@ -10,7 +10,7 @@ say() { printf '%s%s%s\n' "$B" "$*" "$N"; }
 
 case "${1:-help}" in
     status|st)
-        b=$(~/.config/waybar/scripts/battery.sh --text 2>/dev/null); up=$(uptime -p | sed 's/^up //')
+        b=$(~/.local/bin/sigil-battery 2>/dev/null); up=$(uptime -p | sed 's/^up //')
         prof=$(powerprofilesctl get 2>/dev/null); wifi=$(nmcli -t -f NAME,DEVICE con show --active 2>/dev/null | awk -F: '$2 ~ /^wl/ {print $1; exit}')
         np=$(playerctl metadata --format '{{status}}: {{artist}} — {{title}}' 2>/dev/null); lock=$([ -f "$RT/locked-at" ] && echo locked || echo unlocked)
         printf '%s%-10s%s %s\n' "$M" "host" "$N" "$(uname -n) · up $up · $lock"
@@ -19,7 +19,7 @@ case "${1:-help}" in
         printf '%s%-10s%s %s\n' "$M" "wifi" "$N" "${wifi:-none}  ·  tailscale $(tailscale ip -4 2>/dev/null)"
         printf '%s%-10s%s %s\n' "$M" "media" "$N" "${np:-nothing playing}"
         printf '%s%-10s%s %s\n' "$M" "window" "$N" "$(hyprctl activewindow -j 2>/dev/null | python3 -c 'import json,sys; c=json.load(sys.stdin); print(c.get("class",""), "·", c.get("title","")[:60])' 2>/dev/null)"
-        printf '%s%-10s%s %s\n' "$M" "updates" "$N" "$(python3 -c "import json; d=json.load(open('$RT/waybar-updates.json')); print(d.get('tooltip','?').split(chr(10))[0])" 2>/dev/null)" ;;
+        printf '%s%-10s%s %s\n' "$M" "updates" "$N" "$(python3 -c "import json; d=json.load(open('$RT/sigil-updates.json')); print(d.get('tooltip','?').split(chr(10))[0])" 2>/dev/null)" ;;
     lock)       loginctl lock-session && say "locked" ;;
     notify|say) shift; notify-send -a remote -i phone "$(printf '%s' "${1:-ping}")" "${2:-}" && say "shown on the laptop screen" ;;
     play|pause|toggle) playerctl play-pause && say "$(playerctl status)" ;;
@@ -31,8 +31,8 @@ case "${1:-help}" in
     bright|brightness) if [ -n "$2" ]; then brightnessctl -q set "$2%"; fi; brightnessctl -m | cut -d, -f4 ;;
     profile)    if [ -n "$2" ]; then powerprofilesctl set "$2"; fi; powerprofilesctl get ;;
     ultra)      ~/.local/bin/ultra "${2:-toggle}"; [ "${2:-}" = status ] || echo "ultra: $(~/.local/bin/ultra state)" ;;
-    awake)      ~/.config/swaync/keepawake.sh "${2:-toggle}"; echo "keep-awake: $(~/.config/swaync/keepawake.sh state)" ;;
-    night)      ~/.config/swaync/nightlight.sh "${2:-toggle}"; echo "night light: $(~/.config/swaync/nightlight.sh state)" ;;
+    awake)      sigil-keepawake "${2:-toggle}"; echo "keep-awake: $(sigil-keepawake state)" ;;
+    night)      sigil-nightlight "${2:-toggle}"; echo "night light: $(sigil-nightlight state)" ;;
     shot|screenshot)  # full screen -> file, and sent to the phone via Taildrop if it is online
         f=~/Pictures/Screenshots/remote_$(date +%Y%m%d_%H%M%S).png; grim "$f" && say "saved $f"
         if tailscale status 2>/dev/null | grep -q "$PHONE"; then tailscale file cp "$f" "$PHONE:" && say "sent to $PHONE (check the Tailscale app)"; fi ;;
@@ -44,7 +44,7 @@ case "${1:-help}" in
     win|windows) hyprctl clients -j | python3 -c 'import json,sys; [print(f"{c[\"workspace\"][\"id\"]:>3}  {c[\"class\"]:<22} {c[\"title\"][:60]}") for c in json.load(sys.stdin)]' ;;
     ws)         hyprctl dispatch "hl.dsp.focus({ workspace = ${2:-1} })" >/dev/null && say "workspace $2" ;;
     run)        shift; hyprctl dispatch "hl.dsp.exec_cmd(\"$*\")" >/dev/null && say "launched: $*" ;;
-    updates)    ~/.config/waybar/scripts/updates.sh | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("tooltip","").replace("\\n","\n"))' ;;
+    updates)    sigil-updates | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("tooltip","").replace("\\n","\n"))' ;;
     upgrade)    paru -Syu ;;
     suspend)    say "suspending in 3 s (you will lose this session)"; sleep 3; systemctl suspend ;;
     reboot)     read -r -p "reboot the laptop? [y/N] " a; [ "$a" = y ] && systemctl reboot ;;

@@ -1,5 +1,5 @@
 # Re-open /opt/spotify for spicetify after every spotify (AUR) install/upgrade.
-# The user-side re-apply is done by ~/.config/waybar/scripts/update-now.sh.
+# The user-side re-apply is done by sigil-update-now (sigil-shell).
 [Trigger]
 Operation = Install
 Operation = Upgrade

@@ -44,7 +44,7 @@ hl.monitor({
 -- Set programs that you use
 local terminal = "kitty -1" -- single instance: new windows come from the resident kitty (~150 ms vs ~2 s cold)
 local fileManager = "dolphin"
-local menu = "~/.local/bin/sigil-do launcher" -- rofi, or the sigil-shell launcher (see ~/sigil-shell)
+local menu = "~/.local/bin/sigil-do launcher" -- sigil-shell launcher (see ~/sigil-shell)
 local browser = "zen-browser"
 local ide = "code"
 
@@ -61,9 +61,7 @@ hl.on("hyprland.start", function ()
     -- Restart portals after Hyprland is up so xdg-desktop-portal binds the
     -- Hyprland backend (fixes Discord/screenshare when portals win the boot race)
     hl.exec_cmd("bash -c 'sleep 1; systemctl --user restart xdg-desktop-portal-hyprland xdg-desktop-portal'")
-    hl.exec_cmd("~/.local/bin/sigil-do polkitd") -- GUI auth prompts (pkexec etc.): hyprpolkitagent, or built into sigil-shell
-    hl.exec_cmd("~/.local/bin/sigil-do wallpaperd") -- hyprpaper, or drawn by sigil-shell
-    hl.exec_cmd("~/.local/bin/sigil-session") -- waybar or sigil-shell, per ~/.config/sigil/mode (see ~/sigil-shell)
+    hl.exec_cmd("~/.local/bin/sigil-session") -- sigil-shell: bar, panels, notifications, wallpaper, lock, polkit (see ~/sigil-shell)
     hl.exec_cmd("[workspace special:vesktop silent] vesktop")
     hl.exec_cmd("[workspace special:slack silent] slack")
     hl.exec_cmd("[workspace special:spotify silent] spotify")
@@ -71,12 +69,10 @@ hl.on("hyprland.start", function ()
     --   hypridle udiskie playerctld nm-applet kdeconnect-indicator keysound (units in ~/.config/systemd/user)
     hl.exec_cmd("systemctl --user start hypridle udiskie playerctld nm-applet kdeconnect-indicator keysound")
     hl.exec_cmd("kitty -1 --start-as=hidden") -- resident kitty server so SUPER+T opens instantly
-    hl.exec_cmd("~/.local/bin/sigil-do notifd") -- swaync (via the unit: same target as D-Bus activation (no double launch), Restart=on-failure
     hl.exec_cmd("hyprexpose")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")  -- clipboard history (SUPER+SHIFT+V)
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
-    hl.exec_cmd("~/.config/swaync/nightlight.sh autostart") -- night light schedule if enabled (~/.config/hypr/hyprsunset.conf)
-    hl.exec_cmd("bash -c 'sleep 8; python3 ~/.config/sigil-settings/sigil-settings.py --hidden'") -- settings app resident in the background
+    hl.exec_cmd("~/.local/bin/sigil-nightlight autostart") -- night light schedule if enabled (~/.config/hypr/hyprsunset.conf)
 end)
 
 -------------------------------
@@ -385,7 +381,7 @@ hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("loginctl lock-session"))
 hl.bind("XF86PowerOff", hl.dsp.exec_cmd("~/.local/bin/sigil-do power"), { locked = true }) -- power button: menu, not poweroff (logind HandlePowerKey=ignore)
 hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("~/.local/bin/sigil-do controlcenter"))
 hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("~/.local/bin/sigil-do clipboard")) -- clipboard history
-hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("~/.local/bin/sigil-do emoji")) -- emoji picker (rofi-emoji)
+hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("~/.local/bin/sigil-do emoji")) -- emoji picker
 hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("~/.local/bin/sigil-do settings")) -- settings applet (resident, toggles)
 hl.bind(mainMod .. " + SHIFT + U", hl.dsp.exec_cmd("~/.local/bin/ultra toggle")) -- ultra power saver / focus mode (see scripts/bin/ultra)
 
@@ -525,7 +521,7 @@ hl.window_rule({
 -- })
 -- overlayLayerRule:set_enabled(false)
 
--- Update window opened from the waybar updates module
+-- Tablet test window
 hl.window_rule({
     name = "float-tablet-test",
     match = { title = "^tablet-test$" },
@@ -542,14 +538,6 @@ hl.window_rule({
     size = "1280 760",
 })
 
-hl.window_rule({
-    name = "float-sigil-settings",
-    match = { class = "^io\\.sigil\\.Settings$" },
-    float = true,
-    center = true,
-    size = "980 680",
-})
-
 -- Float common utility popups
 hl.window_rule({
     name = "float-utilities",
@@ -559,18 +547,13 @@ hl.window_rule({
     center = true,
 })
 
--- Layer rules: blur waybar / launcher / notifications
-hl.layer_rule({ name = "blur-waybar", match = { namespace = "^waybar$" }, blur = true, ignore_alpha = 0.3 })
-hl.layer_rule({ name = "blur-rofi",   match = { namespace = "^rofi$" },   blur = true, ignore_alpha = 0.3 })
-hl.layer_rule({ name = "blur-swaync", match = { namespace = "^swaync-.*$" }, blur = true, ignore_alpha = 0.3 })
-
 -- hyprsunset (night light) + the animated CTM fade make NEW WINDOWS NEVER MAP
 -- (GTK4 clients spin at 100% CPU, verified 2026-09-07). Fade off = everything works.
 hl.config({ render = { ctm_animation = 0 } })
 
 -- machine-local overrides written by the settings app; errors there must never kill the session
 pcall(dofile, os.getenv("HOME") .. "/.config/hypr/local.lua")
--- Drawing-tablet mapping, owned by the Tablet page of sigil-settings.
+-- Drawing-tablet mapping, owned by the settings window's Tablet page.
 -- Kept out of local.lua because the Input page rewrites that file wholesale;
 -- hl.config merges, so whichever of the two loads last wins.
 pcall(dofile, os.getenv("HOME") .. "/.config/hypr/tablet.lua")

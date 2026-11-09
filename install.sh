@@ -92,8 +92,8 @@ fi
 # ── 2. link home files ───────────────────────────────────────────────────────
 # whole directories: everything in them is ours
 LINK_DIRS=(
-    .config/hypr .config/waybar .config/swaync .config/kitty .config/rofi .config/wlogout
-    .config/keysound .config/sigil-settings .config/macchina .config/fontconfig .config/qt6ct .config/udiskie
+    .config/hypr .config/kitty
+    .config/keysound .config/macchina .config/fontconfig .config/qt6ct .config/udiskie
 )
 # single files: the directory around them holds other stuff we do not manage
 LINK_FILES=(
@@ -104,7 +104,8 @@ LINK_FILES=(
     .local/share/applications/sigil-settings.desktop
     .local/share/applications/org.kde.krita.desktop
     .config/systemd/user/dots-sync.service .config/systemd/user/dots-sync.timer
-    .config/systemd/user/swaync.service.d/override.conf
+    .config/systemd/user/udiskie.service .config/systemd/user/playerctld.service .config/systemd/user/nm-applet.service
+    .config/systemd/user/kdeconnect-indicator.service .config/systemd/user/keysound.service
     .config/spicetify/Themes/Cybersigil
     Pictures/Wallpapers/cybersigil.png
     # tablet button mappings; quoted because the device name has spaces. The
@@ -141,17 +142,27 @@ for s in scripts/bin/*; do
         run ln -sf "$REPO_DIR/$s" "$HOME/.local/bin/$n"; ok "bin/$n"
     fi
 done
-run chmod +x scripts/setup/*.sh home/.config/waybar/scripts/* home/.config/swaync/*.sh home/.config/hypr/scripts/*.sh \
-    home/.config/keysound/keysound.sh home/.config/sigil-settings/sigil-settings.py home/.config/rofi/*.sh 2>/dev/null || true
+run chmod +x scripts/setup/*.sh home/.config/hypr/scripts/*.sh home/.config/keysound/keysound.sh 2>/dev/null || true
+
+# the desktop shell lives in its own repo: bar, launcher, notifications, lock, wallpaper,
+# settings window. Its units + helper scripts are linked by bin/sigil-units.
+SIGIL_DIR="$HOME/sigil-shell"
+if [[ ! -d "$SIGIL_DIR/.git" ]]; then
+    say "cloning sigil-shell"
+    run git clone https://github.com/volcinator8000/sigil-shell.git "$SIGIL_DIR"
+fi
+run mkdir -p "$HOME/.config/quickshell"
+run ln -sfn "$SIGIL_DIR/quickshell" "$HOME/.config/quickshell/sigil"; ok ".config/quickshell/sigil"
+for b in "$SIGIL_DIR"/bin/*; do run ln -sf "$b" "$HOME/.local/bin/$(basename "$b")"; done; ok "sigil-shell bin/"
+for u in "$SIGIL_DIR"/systemd/*; do run ln -sf "$u" "$HOME/.config/systemd/user/$(basename "$u")"; done; ok "sigil-shell units"
 
 # ── 3. absolute paths that tools refuse to expand ────────────────────────────
-# hyprpaper / hyprlock / qt6ct want real paths; rewrite whatever home they were saved with
+# hyprlock / qt6ct want real paths; rewrite whatever home they were saved with
 say "fixing absolute home paths for $HOME"
 fixpath() {  # fixpath <file> <sed expression>; only touches the file when something changes
     local before; before="$(cat "$1")"
     if [[ "$before" != "$(sed -e "$2" "$1")" ]]; then run sed -i -e "$2" "$1"; ok "$1"; fi
 }
-fixpath home/.config/hypr/hyprpaper.conf "s|= *[^ ]*/Pictures/Wallpapers/|= $HOME/Pictures/Wallpapers/|"
 fixpath home/.config/hypr/hyprlock.conf  "s|= *[^ ]*/Pictures/Wallpapers/|= $HOME/Pictures/Wallpapers/|"
 fixpath home/.config/qt6ct/qt6ct.conf    "s|color_scheme_path=.*/.config/qt6ct/|color_scheme_path=$HOME/.config/qt6ct/|"
 
@@ -223,8 +234,8 @@ fi
 if [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] && command -v hyprctl >/dev/null && (( ! DRY )); then
     say "reloading running session"
     hyprctl reload >/dev/null 2>&1 || true
-    pkill -x waybar 2>/dev/null || true; sleep 0.3; hyprctl dispatch 'hl.dsp.exec_cmd("waybar")' >/dev/null 2>&1 || true
-    swaync-client -R >/dev/null 2>&1 && swaync-client -rs >/dev/null 2>&1 || true
+    systemctl --user daemon-reload >/dev/null 2>&1 || true
+    "$HOME/.local/bin/sigil-units" start >/dev/null 2>&1 || true
 fi
 
 printf '\n%s done.%s\n' "$G" "$N"
@@ -232,5 +243,4 @@ cat <<EOF
   repo      $REPO_DIR   (alias: dots status / dots add / dots commit / dots push)
   hyprland  log out and pick Hyprland; SUPER+I = settings, SUPER+R = launcher, SUPER+N = control center
   todo      hibernation is machine-specific: run with --hibernate on a btrfs swapfile setup
-            the waybar backlight/gpu scripts assume an AMD laptop (amdgpu_bl*, card1)
 EOF

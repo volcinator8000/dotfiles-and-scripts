@@ -5,7 +5,7 @@ cliphist wl-clipboard grim slurp satty
 # core desktop
 dolphin pavucontrol blueman bluez bluez-utils network-manager-applet networkmanager
 git base-devel
-hyprland hyprlock hypridle hyprpaper hyprsunset hyprpolkitagent xdg-desktop-portal-hyprland
+hyprland hyprlock hypridle hyprsunset xdg-desktop-portal-hyprland
 noto-fonts noto-fonts-cjk noto-fonts-emoji noto-fonts-extra
 pipewire pipewire-pulse wireplumber btop
 python-gobject libadwaita gtk4 python-cairo
@@ -16,5 +16,5 @@ snapper snap-pac zram-generator ufw earlyoom
 # system controls used by the bar, control center and settings app
 # theming
 udiskie
-waybar swaync rofi rofi-emoji wtype kitty wlogout
+quickshell qt6-multimedia ffmpeg wtype kitty
 zsh zsh-autosuggestions zsh-syntax-highlighting starship macchina eza bat zoxide fzf pkgfile

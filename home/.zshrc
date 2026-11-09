@@ -28,7 +28,7 @@ alias cd='z'
 alias cl="clear"
 alias tek="cd ~/epitech"
 alias anime="ani-cli"
-alias update="~/.config/waybar/scripts/update-now.sh"
+alias update="sigil-update-now"
 
 # ── prompt + fetch ───────────────────────────────────────────────
 eval "$(starship init zsh)"
