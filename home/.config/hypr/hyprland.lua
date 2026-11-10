@@ -37,7 +37,7 @@ hl.monitor({
     position = "1920x0",
     scale = 1,
     vrr = 1,       -- adaptive sync always on (misc.vrr = 3 below covers other monitors)
-    bitdepth = 10, -- fullscreen video asking for wide gamut (cm_auto_hdr) needs 10-bit, or Hyprland warns
+    bitdepth = 10, -- smoother gradients; also what wide gamut / HDR would need
 })
 
 ---------------------
@@ -554,7 +554,12 @@ hl.window_rule({
 
 -- hyprsunset (night light) + the animated CTM fade make NEW WINDOWS NEVER MAP
 -- (GTK4 clients spin at 100% CPU, verified 2026-09-07). Fade off = everything works.
-hl.config({ render = { ctm_animation = 0 } })
+hl.config({ render = {
+    ctm_animation = 0,
+    -- no automatic HDR / wide-gamut switch for fullscreen apps: the switch is a modeset that
+    -- blanks the LG for a second or two every time mpv / a game goes fullscreen
+    cm_auto_hdr = 0,
+} })
 
 -- machine-local overrides written by the settings app; errors there must never kill the session
 pcall(dofile, os.getenv("HOME") .. "/.config/hypr/local.lua")
