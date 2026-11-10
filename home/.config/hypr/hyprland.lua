@@ -26,7 +26,7 @@ hl.monitor({
     mode = "1920x1080@60",
     position = "0x0",
     scale = 1,
-    vrr = 1, -- adaptive sync always on for the panel (the LG keeps misc.vrr = 3, see below)
+    vrr = 1, -- adaptive sync always on for the panel
 })
 -- LG 1440p to the right. Matched by description so the rule follows it to any port. highrr picks
 -- the fastest mode the cable allows: 2560x1440@99.95 over HDMI (its EDID caps HDMI at 100 Hz),
@@ -36,6 +36,8 @@ hl.monitor({
     mode = "highrr",
     position = "1920x0",
     scale = 1,
+    vrr = 1,       -- adaptive sync always on (misc.vrr = 3 below covers other monitors)
+    bitdepth = 10, -- fullscreen video asking for wide gamut (cm_auto_hdr) needs 10-bit, or Hyprland warns
 })
 
 ---------------------
