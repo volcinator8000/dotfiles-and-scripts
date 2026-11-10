@@ -119,8 +119,8 @@ hl.env("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
 -- Refer to https://wiki.hypr.land/Configuring/Basics/Variables/
 hl.config({
     general = {
-        gaps_in = 4,
-        gaps_out = 4,   -- from the sigil-shell frame (bar + 4 px border)
+        gaps_in = 2,    -- 4 px between windows
+        gaps_out = 0,   -- windows sit flush against the sigil-shell frame (bar + 4 px border)
 
         border_size = 1,
 
@@ -140,7 +140,7 @@ hl.config({
     },
 
     decoration = {
-        rounding = 10,  -- sits inside the frame's 12 px inner corners
+        rounding = 12,  -- same radius as the frame's inner corners, so they line up
         rounding_power = 2,
 
         -- Change transparency of focused and unfocused windows
