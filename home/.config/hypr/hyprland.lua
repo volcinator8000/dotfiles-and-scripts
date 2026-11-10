@@ -44,7 +44,7 @@ hl.monitor({
 -- Set programs that you use
 local terminal = "kitty -1" -- single instance: new windows come from the resident kitty (~150 ms vs ~2 s cold)
 local fileManager = "dolphin"
-local menu = "~/.local/bin/sigil-do launcher" -- sigil-shell launcher (see ~/sigil-shell)
+local menu = "~/.local/bin/sigil-do launcher" -- sigil-shell launcher from scripts (the SUPER+R bind uses the global shortcut)
 local browser = "zen-browser"
 local ide = "code"
 
@@ -380,10 +380,11 @@ local mainMod = "SUPER" -- Sets "Windows" key as main modifier
 
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("loginctl lock-session"))
 hl.bind("XF86PowerOff", hl.dsp.exec_cmd("~/.local/bin/sigil-do power"), { locked = true }) -- power button: menu, not poweroff (logind HandlePowerKey=ignore)
-hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("~/.local/bin/sigil-do controlcenter"))
-hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("~/.local/bin/sigil-do clipboard")) -- clipboard history
-hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("~/.local/bin/sigil-do emoji")) -- emoji picker
-hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("~/.local/bin/sigil-do settings")) -- settings applet (resident, toggles)
+-- sigil-shell panels: Hyprland global shortcuts the shell listens for (instant, no process per key)
+hl.bind(mainMod .. " + N", hl.dsp.global("sigil:controlcenter"))
+hl.bind(mainMod .. " + SHIFT + V", hl.dsp.global("sigil:clipboard")) -- clipboard history
+hl.bind(mainMod .. " + O", hl.dsp.global("sigil:emoji")) -- emoji picker
+hl.bind(mainMod .. " + I", hl.dsp.global("sigil:settings")) -- settings applet (resident, toggles)
 hl.bind(mainMod .. " + SHIFT + U", hl.dsp.exec_cmd("~/.local/bin/ultra toggle")) -- ultra power saver / focus mode (see scripts/bin/ultra)
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
@@ -395,7 +396,7 @@ hl.bind(mainMod .. " + B", hl.dsp.exec_cmd(browser))
 hl.bind(mainMod .. " + C", hl.dsp.exec_cmd(ide))
 hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
-hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(menu))
+hl.bind(mainMod .. " + R", hl.dsp.global("sigil:launcher"))
 hl.bind(mainMod .. " + SHIFT + P", hl.dsp.window.pseudo()) -- pseudo-tile (moved off plain SUPER+P)
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit")) -- dwindle only
 
