@@ -192,10 +192,10 @@ hl.animation({ leaf = "layersIn", enabled = true, speed = 4, bezier = "easeOutQu
 hl.animation({ leaf = "layersOut", enabled = true, speed = 2.2, bezier = "easeOutQuint", style = "fade" })
 hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 2.6, bezier = "easeOutQuint" })
 hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 2.2, bezier = "easeOutQuint" })
--- workspaces glide sideways with a little fade instead of a linear cross-fade
-hl.animation({ leaf = "workspaces", enabled = true, speed = 4, bezier = "easeOutQuint", style = "slidefade 12%" })
-hl.animation({ leaf = "workspacesIn", enabled = true, speed = 4, bezier = "easeOutQuint", style = "slidefade 12%" })
-hl.animation({ leaf = "workspacesOut", enabled = true, speed = 4, bezier = "easeOutQuint", style = "slidefade 12%" })
+-- workspaces glide sideways, windows stay opaque (a fade let the wallpaper flash through)
+hl.animation({ leaf = "workspaces", enabled = true, speed = 4, bezier = "easeOutQuint", style = "slide" })
+hl.animation({ leaf = "workspacesIn", enabled = true, speed = 4, bezier = "easeOutQuint", style = "slide" })
+hl.animation({ leaf = "workspacesOut", enabled = true, speed = 4, bezier = "easeOutQuint", style = "slide" })
 hl.animation({ leaf = "zoomFactor", enabled = true, speed = 7, bezier = "quick" })
 
 -- Ref https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/
