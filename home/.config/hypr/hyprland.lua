@@ -120,7 +120,7 @@ hl.env("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
 hl.config({
     general = {
         gaps_in = 4,
-        gaps_out = 8,
+        gaps_out = 4,   -- from the sigil-shell frame (bar + 4 px border)
 
         border_size = 1,
 
@@ -140,7 +140,7 @@ hl.config({
     },
 
     decoration = {
-        rounding = 2,
+        rounding = 10,  -- sits inside the frame's 12 px inner corners
         rounding_power = 2,
 
         -- Change transparency of focused and unfocused windows
