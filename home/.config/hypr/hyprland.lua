@@ -14,31 +14,78 @@
 ------------------
 
 -- See https://wiki.hypr.land/Configuring/Basics/Monitors/
-hl.monitor({
-    output = "",
-    mode = "preferred",
-    position = "auto",
-    scale = 1,
-})
--- laptop panel on the left, Waybar lives here
-hl.monitor({
-    output = "eDP-1",
-    mode = "1920x1080@60",
-    position = "0x0",
-    scale = 1,
-    vrr = 1, -- adaptive sync always on for the panel
-})
--- LG 1440p to the right. Matched by description so the rule follows it to any port. highrr picks
--- the fastest mode the cable allows: 2560x1440@99.95 over HDMI (its EDID caps HDMI at 100 Hz),
--- 144 Hz over DisplayPort. ("highres" chose 3840x2160@60, which the monitor downscaled.)
-hl.monitor({
-    output = "desc:LG Electronics LG HDR QHD 0x0004D689",
-    mode = "highrr",
-    position = "1920x0",
-    scale = 1,
-    vrr = 1,       -- adaptive sync always on (misc.vrr = 3 below covers other monitors)
-    bitdepth = 10, -- smoother gradients; also what wide gamut / HDR would need
-})
+-- The rules live in a table so the settings app's Display page can override them: it writes
+-- ~/.config/hypr/monitors.lua (a list of { desc =, name =, rule = {…} }) and each entry is merged
+-- into the rule for the same monitor (matched by description, then by connector name), or added
+-- as a new desc: rule. Delete that file to go back to exactly what is written here.
+local monitor_rules = {
+    { output = "", mode = "preferred", position = "auto", scale = 1 },
+    -- laptop panel on the left
+    {
+        output = "eDP-1",
+        mode = "1920x1080@60",
+        position = "0x0",
+        scale = 1,
+        vrr = 1, -- adaptive sync always on for the panel
+    },
+    -- LG 1440p to the right. Matched by description so the rule follows it to any port. highrr picks
+    -- the fastest mode the cable allows: 2560x1440@99.95 over HDMI (its EDID caps HDMI at 100 Hz),
+    -- 144 Hz over DisplayPort. ("highres" chose 3840x2160@60, which the monitor downscaled.)
+    {
+        output = "desc:LG Electronics LG HDR QHD 0x0004D689",
+        mode = "highrr",
+        position = "1920x0",
+        scale = 1,
+        vrr = 1,       -- adaptive sync always on (misc.vrr = 3 below covers other monitors)
+        bitdepth = 10, -- smoother gradients; also what wide gamut / HDR would need
+    },
+}
+
+local function merged_monitor_rules()
+    local rules = {}
+    for i, r in ipairs(monitor_rules) do
+        local c = {}
+        for k, v in pairs(r) do c[k] = v end
+        rules[i] = c
+    end
+    local ok, over = pcall(dofile, os.getenv("HOME") .. "/.config/hypr/monitors.lua")
+    if not ok or type(over) ~= "table" then return rules end
+    for _, o in ipairs(over) do
+        if type(o) == "table" and type(o.rule) == "table" and (o.desc or o.name) then
+            local hit
+            for _, r in ipairs(rules) do
+                if r.output ~= "" and ((o.desc and r.output == "desc:" .. o.desc) or (o.name and r.output == o.name)) then hit = r end
+            end
+            if not hit then
+                hit = { output = o.desc and ("desc:" .. o.desc) or o.name }
+                table.insert(rules, hit)
+            end
+            for k, v in pairs(o.rule) do if k ~= "output" then hit[k] = v end end
+        end
+    end
+    return rules
+end
+
+-- Global so `hyprctl eval 'sigil_monitors()'` can re-apply after the Display page saves.
+-- nudge = { ["eDP-1"] = "1920x1080@40", … } applies those outputs with a temporary mode first:
+-- Hyprland only re-commits a rule (vrr, bitdepth) when its mode changes.
+function sigil_monitors(nudge)
+    for _, r in ipairs(merged_monitor_rules()) do
+        if nudge then
+            for name, mode in pairs(nudge) do
+                if r.output == name or r.output == "desc:" .. name then
+                    local t = {}
+                    for k, v in pairs(r) do t[k] = v end
+                    t.mode = mode
+                    hl.monitor(t)
+                end
+            end
+        else
+            hl.monitor(r)
+        end
+    end
+end
+sigil_monitors()
 
 ---------------------
 ---- MY PROGRAMS ----
