@@ -159,8 +159,8 @@ BACKUP="$HOME/.config-backup-$(date +%Y%m%d-%H%M%S)"
 link() {  # link <relative path>
     local rel="$1" src="$REPO_DIR/home/$1" dst="$HOME/$1"
     [[ -e "$src" ]] || { warn "missing in repo: $rel"; return; }
-    if [[ -L "$dst" && "$(readlink -f "$dst")" == "$(readlink -f "$src")" ]]; then
-        return  # already ours
+    if [[ "$(readlink -f "$dst")" == "$(readlink -f "$src")" ]]; then
+        return  # already ours (directly, or through a linked parent directory)
     fi
     if [[ -e "$dst" || -L "$dst" ]]; then
         run mkdir -p "$BACKUP/$(dirname "$rel")"
@@ -195,7 +195,7 @@ if [[ ! -d "$SIGIL_DIR/.git" ]]; then
 fi
 link_to() {  # link_to <target> <relative path under $HOME>: like link(), from outside this repo
     local src="$1" rel="$2" dst="$HOME/$2"
-    [[ -L "$dst" && "$(readlink -f "$dst")" == "$(readlink -f "$src")" ]] && return
+    [[ "$(readlink -f "$dst")" == "$(readlink -f "$src")" ]] && return
     if [[ -e "$dst" || -L "$dst" ]]; then
         run mkdir -p "$BACKUP/$(dirname "$rel")"
         run mv "$dst" "$BACKUP/$rel"
