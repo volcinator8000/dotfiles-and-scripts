@@ -1,7 +1,12 @@
 [Unit]
 Description=Commit and push dotfiles-and-scripts
 After=network-online.target
+# offline at the weekly run (train Wi-Fi, suspend): retry every 20 min for ~2 h
+StartLimitIntervalSec=3h
+StartLimitBurst=7
 
 [Service]
 Type=oneshot
 ExecStart=%h/.local/bin/dots-sync
+Restart=on-failure
+RestartSec=20min

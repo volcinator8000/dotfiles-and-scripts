@@ -10,4 +10,8 @@ if ! git diff --cached --quiet; then
     echo "committed: $(git log -1 --pretty=%s)"
 fi
 git pull -q --rebase --autostash origin main || echo "pull failed (offline?)"
-git push -q origin main && echo "pushed $(git rev-parse --short HEAD)" || echo "push failed (offline?)"
+if git push -q origin main; then
+    echo "pushed $(git rev-parse --short HEAD)"
+else
+    echo "push failed (offline?)"; exit 75   # dots-sync.service retries on failure
+fi

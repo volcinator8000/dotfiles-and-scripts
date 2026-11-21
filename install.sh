@@ -7,7 +7,7 @@
 # │    bash <(curl -fsSL https://raw.githubusercontent.com/volcinator8000/dotfiles-and-scripts/main/install.sh)
 # │                                                                         │
 # │  Already cloned:   ./install.sh [--skip-packages] [--skip-system]       │
-# │                    [--apps] [--hibernate] [--dry-run]                   │
+# │                    [--skip-gpu] [--apps] [--hibernate] [--dry-run]      │
 # └─────────────────────────────────────────────────────────────────────────┘
 set -euo pipefail
 
@@ -15,11 +15,12 @@ REPO_URL="git@github.com:volcinator8000/dotfiles-and-scripts.git"
 REPO_HTTPS="https://github.com/volcinator8000/dotfiles-and-scripts.git"
 REPO_DIR="${DOTFILES_DIR:-$HOME/dotfiles-and-scripts}"
 
-SKIP_PACKAGES=0 SKIP_SYSTEM=0 APPS=0 HIBERNATE=0 DRY=0
+SKIP_PACKAGES=0 SKIP_SYSTEM=0 SKIP_GPU=0 APPS=0 HIBERNATE=0 DRY=0
 for a in "$@"; do
     case "$a" in
         --skip-packages) SKIP_PACKAGES=1 ;;
         --skip-system)   SKIP_SYSTEM=1 ;;
+        --skip-gpu)      SKIP_GPU=1 ;;
         --apps)          APPS=1 ;;
         --hibernate)     HIBERNATE=1 ;;
         --dry-run)       DRY=1 ;;
@@ -56,7 +57,7 @@ bootstrap() {
         git clone "$REPO_URL" "$REPO_DIR" 2>/dev/null || git clone "$REPO_HTTPS" "$REPO_DIR"
     else
         say "updating $REPO_DIR"
-        git -C "$REPO_DIR" pull --ff-only || warn "pull failed, continuing with what is on disk"
+        run git -C "$REPO_DIR" pull --ff-only || warn "pull failed, continuing with what is on disk"
     fi
     exec bash "$REPO_DIR/install.sh" "$@"
 }
@@ -68,6 +69,46 @@ cd "$REPO_DIR"
 banner
 [[ -f /etc/arch-release ]] || warn "this is written for Arch Linux; package steps will probably fail elsewhere"
 
+# ── GPU detection ────────────────────────────────────────────────────────────
+# Every display controller lspci sees picks its own driver packages; hybrid laptops get both.
+gpu_drivers() {
+    local lines pkgs=() aur=() hdr kpkg
+    lines="$(lspci -nn 2>/dev/null | grep -Ei 'vga|3d controller|display controller' || true)"
+    [[ -n "$lines" ]] || { warn "no GPU found by lspci, skipping drivers"; return; }
+    say "GPU drivers"
+    printf '%s   %s%s\n' "$M" "${lines//$'\n'/$'\n'   }" "$N"
+    if grep -qi '\[1002:' <<<"$lines"; then          # AMD
+        pkgs+=(mesa vulkan-radeon linux-firmware)
+    fi
+    if grep -qi '\[8086:' <<<"$lines"; then          # Intel
+        pkgs+=(mesa vulkan-intel intel-media-driver linux-firmware)
+    fi
+    if grep -qi '\[10de:' <<<"$lines"; then          # NVIDIA
+        # open kernel modules need Turing (GTX 16xx / RTX 20xx) or newer; the 590+ driver
+        # dropped everything older, which is left on the legacy AUR branch
+        if grep -Eqi 'RTX|GTX 16|\b(TU|GA|AD|GB)[0-9]{3}|Quadro T|\b[ATL][0-9]{2,4}\b' <<<"$lines"; then
+            pkgs+=(nvidia-open-dkms nvidia-utils egl-wayland libva-nvidia-driver)
+        else
+            aur+=(nvidia-580xx-dkms nvidia-580xx-utils); pkgs+=(egl-wayland)
+            warn "pre-Turing NVIDIA card: using the legacy 580xx driver from the AUR"
+        fi
+        kpkg="$(pacman -Qqo "/usr/lib/modules/$(uname -r)/vmlinuz" 2>/dev/null || echo linux)"
+        hdr="${kpkg}-headers"; pkgs+=("$hdr")   # dkms builds against the running kernel
+    fi
+    if grep -Eqi 'virtio|qxl|vmware|virtualbox|cirrus|bochs' <<<"$lines"; then  # VMs
+        pkgs+=(mesa)
+    fi
+    if (( ${#pkgs[@]} )); then
+        mapfile -t pkgs < <(printf '%s\n' "${pkgs[@]}" | sort -u)
+        run sudo pacman -S --needed --noconfirm "${pkgs[@]}" || warn "some GPU packages failed to install"
+    fi
+    (( ${#aur[@]} )) && { run paru -S --needed --noconfirm "${aur[@]}" || warn "legacy NVIDIA driver failed to install"; }
+    if grep -qi '\[10de:' <<<"$lines"; then
+        warn "NVIDIA: reboot once the driver is in; Hyprland needs nvidia_drm.modeset=1 (the default since 560)"
+    fi
+    ok "GPU drivers: ${pkgs[*]} ${aur[*]:-}"
+}
+
 # ── 1. packages ──────────────────────────────────────────────────────────────
 if (( ! SKIP_PACKAGES )); then
     say "official packages (pacman)"
@@ -77,10 +118,11 @@ if (( ! SKIP_PACKAGES )); then
         run sudo pacman -S --needed --noconfirm base-devel
         tmp="$(mktemp -d)"
         run git clone https://aur.archlinux.org/paru-bin.git "$tmp/paru-bin"
-        (cd "$tmp/paru-bin" && run makepkg -si --noconfirm)
+        if (( DRY )); then run makepkg -si --noconfirm; else (cd "$tmp/paru-bin" && makepkg -si --noconfirm); fi
     fi
     say "AUR packages (paru)"
     run paru -S --needed --noconfirm $(grep -vE '^\s*(#|$)' packages/aur.txt)
+    if (( ! SKIP_GPU )); then gpu_drivers; else warn "skipping GPU drivers (--skip-gpu)"; fi
     if (( APPS )); then
         say "apps (paru)"
         run paru -S --needed --noconfirm $(grep -vE '^\s*(#|$)' packages/apps.txt)
@@ -151,10 +193,20 @@ if [[ ! -d "$SIGIL_DIR/.git" ]]; then
     say "cloning sigil-shell"
     run git clone https://github.com/volcinator8000/sigil-shell.git "$SIGIL_DIR"
 fi
-run mkdir -p "$HOME/.config/quickshell"
-run ln -sfn "$SIGIL_DIR/quickshell" "$HOME/.config/quickshell/sigil"; ok ".config/quickshell/sigil"
-for b in "$SIGIL_DIR"/bin/*; do run ln -sf "$b" "$HOME/.local/bin/$(basename "$b")"; done; ok "sigil-shell bin/"
-for u in "$SIGIL_DIR"/systemd/*; do run ln -sf "$u" "$HOME/.config/systemd/user/$(basename "$u")"; done; ok "sigil-shell units"
+link_to() {  # link_to <target> <relative path under $HOME>: like link(), from outside this repo
+    local src="$1" rel="$2" dst="$HOME/$2"
+    [[ -L "$dst" && "$(readlink -f "$dst")" == "$(readlink -f "$src")" ]] && return
+    if [[ -e "$dst" || -L "$dst" ]]; then
+        run mkdir -p "$BACKUP/$(dirname "$rel")"
+        run mv "$dst" "$BACKUP/$rel"
+        printf '%s   moved old %s -> %s%s\n' "$M" "$rel" "$BACKUP" "$N"
+    fi
+    run mkdir -p "$(dirname "$dst")"
+    run ln -s "$src" "$dst"; ok "$rel"
+}
+link_to "$SIGIL_DIR/quickshell" .config/quickshell/sigil
+for b in "$SIGIL_DIR"/bin/*; do [[ "$(basename "$b")" == __pycache__ ]] || link_to "$b" ".local/bin/$(basename "$b")"; done
+for u in "$SIGIL_DIR"/systemd/*; do link_to "$u" ".config/systemd/user/$(basename "$u")"; done
 
 # ── 3. absolute paths that tools refuse to expand ────────────────────────────
 # hyprlock / qt6ct want real paths; rewrite whatever home they were saved with
@@ -169,7 +221,7 @@ fixpath home/.config/qt6ct/qt6ct.conf    "s|color_scheme_path=.*/.config/qt6ct/|
 # ── 4. generated bits ────────────────────────────────────────────────────────
 say "generating key-sound packs"
 for p in cybersigil animalese frog; do run python3 home/.config/keysound/gen-sounds.py --pack "$p" >/dev/null; done
-grep -q '^pack=' home/.config/keysound/config || echo "pack=cybersigil" >> home/.config/keysound/config
+grep -q '^pack=' home/.config/keysound/config || run sh -c 'echo "pack=cybersigil" >> home/.config/keysound/config'
 say "font cache / desktop database / zsh plugins"
 run fc-cache -f >/dev/null
 command -v update-desktop-database >/dev/null && run update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
@@ -195,12 +247,29 @@ fi
 # ── 5. system side (needs sudo) ──────────────────────────────────────────────
 if (( ! SKIP_SYSTEM )); then
     say "system files (sudo)"
+    differs() {  # differs <repo file> <system file>; root-only files need sudo to compare
+        if [[ -r "$2" ]] || { [[ -x "$(dirname "$2")" ]] && [[ ! -e "$2" ]]; }; then ! cmp -s "$1" "$2" 2>/dev/null; return; fi
+        if (( DRY )) && ! sudo -n true 2>/dev/null; then
+            printf '%s   dry:%s cannot read %s without sudo; would install it if it differs\n' "$M" "$N" "$2"; return 1
+        fi
+        ! sudo cmp -s "$1" "$2"
+    }
+    backup_sys() {  # copy a root file we are about to replace into the dated backup (owned by you)
+        if [[ -e "$1" ]]; then :
+        elif (( DRY )); then sudo -n test -e "$1" 2>/dev/null || return 0
+        else sudo test -e "$1" || return 0; fi
+        run mkdir -p "$BACKUP/system$(dirname "$1")"
+        run sudo cp -a "$1" "$BACKUP/system$1"
+        run sudo chown "$USER:" "$BACKUP/system$1"
+        printf '%s   saved old %s -> %s/system%s\n' "$M" "$1" "$BACKUP" "$N"
+    }
     while IFS= read -r f; do
         rel="${f#system/etc/}"
         if [[ "$rel" == udev/rules.d/90-dgpu-no-wakeup.rules ]] && ! lspci -s 01:00.0 2>/dev/null | grep -qi 'navi\|radeon\|AMD'; then
             warn "skipping $rel: no AMD dGPU at 01:00.0 (that rule is for the RX 6500M laptop)"; continue
         fi
-        if ! sudo cmp -s "$f" "/etc/$rel" 2>/dev/null; then
+        if differs "$f" "/etc/$rel"; then
+            backup_sys "/etc/$rel"
             if [[ "$rel" == sudoers.d/* ]]; then   # sudo ignores sudoers.d files that are not 0440
                 run sudo visudo -cqf "$f" || { warn "bad sudoers file $f, not installed"; continue; }
                 run sudo install -Dm440 "$f" "/etc/$rel"
@@ -213,7 +282,7 @@ if (( ! SKIP_SYSTEM )); then
     if [[ -d system/usr ]]; then
         while IFS= read -r f; do
             rel="${f#system/usr/}"
-            if ! sudo cmp -s "$f" "/usr/$rel" 2>/dev/null; then run sudo install -Dm755 "$f" "/usr/$rel"; ok "/usr/$rel"; fi
+            if differs "$f" "/usr/$rel"; then backup_sys "/usr/$rel"; run sudo install -Dm755 "$f" "/usr/$rel"; ok "/usr/$rel"; fi
         done < <(find system/usr -type f | sort)
     fi
     say "services, groups, shell"

@@ -9,11 +9,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/volcinator8000/dotfiles-and-
 
 The script clones this repo to `~/dotfiles-and-scripts`, installs packages,
 symlinks the configs into `$HOME` (anything already there is moved to
-`~/.config-backup-<date>/`), generates the key-sound packs, drops the root-side
+`~/.config-backup-<date>/`, root files it replaces go to `system/` inside it), generates the key-sound packs, drops the root-side
 files into `/etc`, enables timers and puts the user in the `input` group.
 Running it again is a no-op for anything already done.
 
-Flags: `--skip-packages` `--skip-system` `--apps` (Discord/Slack/Spotify/Zen)
+Flags: `--skip-packages` `--skip-system` `--skip-gpu` (drivers are picked from `lspci`: AMD, Intel, NVIDIA, VMs) `--apps` (Discord/Slack/Spotify/Zen)
 `--hibernate` (btrfs swapfile + resume, interactive) `--dry-run`.
 
 ## What is in here
